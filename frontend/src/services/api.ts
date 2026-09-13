@@ -3,6 +3,7 @@ import type { LoginResponse, User } from '@/types/auth'
 import type { Organization, OrganizationStatus } from '@/types/organization'
 import type { PaginatedReviewsResponse } from '@/types/review'
 import type { OrganizationSnapshot } from '@/types/snapshot'
+import type { ProxyServerItem, SystemSettingsData } from '@/types/admin'
 
 export const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? '/api',
@@ -109,3 +110,30 @@ export const getOrganizationSnapshotsApi = async (id: number): Promise<{ data: O
   const response = await api.get<{ data: OrganizationSnapshot[] }>(`/organizations/${id}/snapshots`)
   return response.data
 }
+
+// Admin API
+export const getAdminSettingsApi = async (): Promise<SystemSettingsData> => {
+  const response = await api.get<SystemSettingsData>('/admin/settings')
+  return response.data
+}
+
+export const getAdminProxiesApi = async (): Promise<{ data: ProxyServerItem[] }> => {
+  const response = await api.get<{ data: ProxyServerItem[] }>('/admin/proxies')
+  return response.data
+}
+
+export const addProxiesApi = async (proxies: string[]): Promise<{ message: string; count: number; proxies: ProxyServerItem[] }> => {
+  const response = await api.post<{ message: string; count: number; proxies: ProxyServerItem[] }>('/admin/proxies', { proxies })
+  return response.data
+}
+
+export const toggleProxyApi = async (id: number): Promise<{ data: ProxyServerItem }> => {
+  const response = await api.post<{ data: ProxyServerItem }>(`/admin/proxies/${id}/toggle`)
+  return response.data
+}
+
+export const deleteProxyApi = async (id: number): Promise<{ message: string }> => {
+  const response = await api.delete<{ message: string }>(`/admin/proxies/${id}`)
+  return response.data
+}
+

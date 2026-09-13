@@ -28,6 +28,37 @@ const handleLogout = async (): Promise<void> => {
           </div>
         </RouterLink>
 
+        <!-- Center Navigation Links (when authenticated) -->
+        <nav v-if="authStore.isAuthenticated" class="flex items-center gap-2">
+          <RouterLink
+            to="/organizations"
+            class="px-3 py-1.5 rounded-lg text-xs font-semibold transition"
+            :class="
+              $route.path.startsWith('/organizations')
+                ? 'bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-white'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            "
+          >
+            Организации
+          </RouterLink>
+
+          <RouterLink
+            v-if="authStore.isAdmin"
+            to="/admin"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition"
+            :class="
+              $route.path === '/admin'
+                ? 'bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-400 font-bold'
+                : 'text-slate-600 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400'
+            "
+          >
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+            </svg>
+            Админ-панель
+          </RouterLink>
+        </nav>
+
         <!-- Right Side: User Profile & Logout -->
         <div class="flex items-center gap-4">
           <template v-if="authStore.isAuthenticated">

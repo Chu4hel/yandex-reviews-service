@@ -14,6 +14,7 @@ export const useAuthStore = defineStore('auth', () => {
   const error = ref<string | null>(null)
 
   const isAuthenticated = computed<boolean>(() => !!token.value)
+  const isAdmin = computed<boolean>(() => !!user.value?.is_admin)
 
   const login = async (email: string, password: string): Promise<boolean> => {
     isLoading.value = true
@@ -72,6 +73,7 @@ export const useAuthStore = defineStore('auth', () => {
     isLoading,
     error,
     isAuthenticated,
+    isAdmin,
     login,
     logout,
     fetchProfile,
