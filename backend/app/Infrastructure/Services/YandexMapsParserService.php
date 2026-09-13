@@ -175,6 +175,7 @@ class YandexMapsParserService implements YandexParserInterface
         }
 
         $ua = $this->getRandomUserAgent();
+        $startTime = microtime(true);
 
         try {
             $response = Http::withHeaders([
@@ -193,35 +194,60 @@ class YandexMapsParserService implements YandexParserInterface
                 ->timeout(20)
                 ->get($targetUrl);
         } catch (\Throwable $e) {
-            Log::error('YandexMapsParser: HTTP request failed', [
-                'url' => $targetUrl,
+            $durationMs = (int) round((microtime(true) - $startTime) * 1000);
+            Log::error('YandexMapsParser: сетевой сбой при обращении к Яндекс.Картам', [
+                'target_url' => $targetUrl,
+                'page' => $page,
+                'duration_ms' => $durationMs,
+                'error_class' => get_class($e),
                 'error' => $e->getMessage(),
             ]);
             throw new YandexParserException("Ошибка подключения к Яндекс.Картам: {$e->getMessage()}", 0, $e);
         }
 
+        $durationMs = (int) round((microtime(true) - $startTime) * 1000);
         $html = $response->body();
 
         // 1. Detect Captcha / Bot protection
         if (str_contains($html, 'captcha-page') || str_contains($html, 'smartcaptcha') || str_contains($html, 'showcaptcha')) {
-            Log::warning('YandexMapsParser: Captcha detected', ['url' => $targetUrl]);
+            Log::warning('YandexMapsParser: обнаружена капча / антибот проверка Яндекса', [
+                'target_url' => $targetUrl,
+                'page' => $page,
+                'duration_ms' => $durationMs,
+                'http_status' => $response->status(),
+                'user_agent' => $ua,
+            ]);
             throw new YandexCaptchaDetectedException;
         }
 
         // 2. Extract state-view JSON
         if (! preg_match('/<script type="application\/json" class="state-view">(.*?)<\/script>/s', $html, $matches)) {
-            Log::error('YandexMapsParser: state-view script not found in HTML', [
-                'url' => $targetUrl,
-                'statusCode' => $response->status(),
-                'htmlSnippet' => mb_substr($html, 0, 500),
+            Log::error('YandexMapsParser: тег state-view не найден в ответе (возможна смена разметки)', [
+                'target_url' => $targetUrl,
+                'page' => $page,
+                'http_status' => $response->status(),
+                'duration_ms' => $durationMs,
+                'html_snippet' => mb_substr($html, 0, 300),
             ]);
             throw new YandexMarkupChangedException('Не удалось найти блок данных state-view в ответе Яндекс.Карт. Возможно, изменилась вёрстка платформы.');
         }
 
         $decoded = json_decode($matches[1], true);
         if (! is_array($decoded)) {
+            Log::error('YandexMapsParser: ошибка декодирования JSON state-view', [
+                'target_url' => $targetUrl,
+                'page' => $page,
+                'json_error' => json_last_error_msg(),
+            ]);
             throw new YandexMarkupChangedException('Ошибка декодирования встроенного JSON состояния Яндекс.Карт.');
         }
+
+        Log::debug('YandexMapsParser: успешно получено и декодировано состояние state-view', [
+            'target_url' => $targetUrl,
+            'page' => $page,
+            'http_status' => $response->status(),
+            'duration_ms' => $durationMs,
+        ]);
 
         return $decoded;
     }

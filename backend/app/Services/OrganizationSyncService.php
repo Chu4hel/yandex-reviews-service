@@ -102,6 +102,20 @@ class OrganizationSyncService
      */
     public function syncOrganizationReviews(Organization $organization, int $maxPages = 12): SyncResultDto
     {
+        $startTime = microtime(true);
+
+        Log::withContext([
+            'organization_id' => $organization->id,
+            'yandex_org_id' => $organization->yandex_org_id,
+        ]);
+
+        Log::info('OrganizationSyncService: начата синхронизация отзывов', [
+            'url' => $organization->url,
+            'max_pages' => $maxPages,
+            'current_rating' => $organization->rating,
+            'current_reviews_count' => $organization->reviews_count,
+        ]);
+
         $organization->update([
             'sync_status' => 'syncing',
             'sync_progress' => 0,
@@ -131,21 +145,46 @@ class OrganizationSyncService
                 $totalPagesToScan = 1;
             }
 
+            Log::info('OrganizationSyncService: метаданные организации обновлены, запуск постраничного сбора', [
+                'name' => $parsedOrg->name,
+                'rating' => $parsedOrg->rating,
+                'ratings_count' => $parsedOrg->ratingsCount,
+                'reviews_count' => $parsedOrg->reviewsCount,
+                'total_pages_detected' => $parsedOrg->totalPages,
+                'pages_to_scan' => $totalPagesToScan,
+            ]);
+
             // 2. Fetch pages
             for ($page = 1; $page <= $totalPagesToScan; $page++) {
+                $pageStart = microtime(true);
                 $batch = $this->parser->parseReviewsPage($organization->url, $page);
+
+                $pageNewCount = 0;
+                $pageUpdatedCount = 0;
 
                 foreach ($batch->reviews as $reviewDto) {
                     $isNew = $this->upsertReview($organization->id, $reviewDto);
                     if ($isNew) {
                         $newAddedCount++;
+                        $pageNewCount++;
                     } else {
                         $updatedCount++;
+                        $pageUpdatedCount++;
                     }
                 }
 
                 $progress = (int) round(($page / $totalPagesToScan) * 100);
                 $organization->update(['sync_progress' => min(99, $progress)]);
+
+                Log::info("OrganizationSyncService: обработана страница отзывов {$page}/{$totalPagesToScan}", [
+                    'page' => $page,
+                    'page_duration_ms' => (int) round((microtime(true) - $pageStart) * 1000),
+                    'reviews_in_page' => count($batch->reviews),
+                    'page_new_reviews' => $pageNewCount,
+                    'page_updated_reviews' => $pageUpdatedCount,
+                    'has_next_page' => $batch->hasNextPage,
+                    'progress_percent' => $progress,
+                ]);
 
                 if (! $batch->hasNextPage) {
                     break;
@@ -156,7 +195,7 @@ class OrganizationSyncService
             }
 
             // 3. Create snapshot of changes
-            OrganizationSnapshot::create([
+            $snapshot = OrganizationSnapshot::create([
                 'organization_id' => $organization->id,
                 'rating_before' => $ratingBefore,
                 'rating_after' => $organization->rating,
@@ -176,9 +215,21 @@ class OrganizationSyncService
                 'last_sync_error' => null,
             ]);
 
+            $totalDuration = round(microtime(true) - $startTime, 2);
+            $totalSaved = Review::where('organization_id', $organization->id)->count();
+
+            Log::info('OrganizationSyncService: синхронизация успешно завершена', [
+                'total_duration_sec' => $totalDuration,
+                'new_reviews_added' => $newAddedCount,
+                'updated_reviews_count' => $updatedCount,
+                'total_reviews_saved' => $totalSaved,
+                'snapshot_id' => $snapshot->id,
+                'rating_delta' => $organization->rating !== null && $ratingBefore !== null ? round($organization->rating - $ratingBefore, 2) : 0,
+            ]);
+
             return new SyncResultDto(
                 organizationId: $organization->id,
-                totalReviewsSaved: Review::where('organization_id', $organization->id)->count(),
+                totalReviewsSaved: $totalSaved,
                 newReviewsAdded: $newAddedCount,
                 updatedReviewsCount: $updatedCount,
                 ratingBefore: $ratingBefore,
@@ -188,9 +239,13 @@ class OrganizationSyncService
                 status: 'completed',
             );
         } catch (\Throwable $e) {
-            Log::error('OrganizationSyncService: sync failed', [
-                'organization_id' => $organization->id,
-                'error' => $e->getMessage(),
+            $totalDuration = round(microtime(true) - $startTime, 2);
+            Log::error('OrganizationSyncService: критическая ошибка синхронизации', [
+                'total_duration_sec' => $totalDuration,
+                'error_class' => get_class($e),
+                'error_message' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
             ]);
 
             $organization->update([

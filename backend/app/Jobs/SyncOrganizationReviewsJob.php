@@ -42,23 +42,30 @@ class SyncOrganizationReviewsJob implements ShouldQueue
             return;
         }
 
-        Log::info('SyncOrganizationReviewsJob: Starting sync', [
+        Log::info('SyncOrganizationReviewsJob: старт выполнения фоновой задачи', [
+            'job_id' => $this->job ? $this->job->getJobId() : 'sync',
+            'attempt' => $this->attempts(),
+            'max_tries' => $this->tries,
             'organization_id' => $organization->id,
             'name' => $organization->name,
         ]);
 
         $syncService->syncOrganizationReviews($organization);
 
-        Log::info('SyncOrganizationReviewsJob: Sync completed successfully', [
+        Log::info('SyncOrganizationReviewsJob: фоновая задача успешно завершена', [
+            'job_id' => $this->job ? $this->job->getJobId() : 'sync',
+            'attempt' => $this->attempts(),
             'organization_id' => $organization->id,
         ]);
     }
 
     public function failed(\Throwable $exception): void
     {
-        Log::error('SyncOrganizationReviewsJob: Job failed permanently', [
+        Log::critical('SyncOrganizationReviewsJob: исчерпаны все попытки выполнения фоновой задачи', [
             'organization_id' => $this->organizationId,
-            'error' => $exception->getMessage(),
+            'max_tries' => $this->tries,
+            'error_class' => get_class($exception),
+            'error_message' => $exception->getMessage(),
         ]);
 
         $organization = Organization::find($this->organizationId);
