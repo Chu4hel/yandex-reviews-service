@@ -92,6 +92,41 @@ npm run build
 
 ---
 
+## 🛡 Качество кода, типизация и CI/CD
+
+В проекте настроены строгие стандарты качества кода и автоматические проверки:
+
+1. **Строгая типизация бэкенда (`declare(strict_types=1);`)**:
+   - Во всех файлах бэкенда (`app/` и `tests/`) включена директива `declare(strict_types=1);`.
+   - Полный статический анализ через **PHPStan / Larastan (Level 6)** (`backend/phpstan.neon` без единой ошибки).
+2. **Унификация API (Laravel API Resources)**:
+   - Все контроллеры возвращают строго типизированные `JsonResource`: `OrganizationResource`, `ReviewResource`, `OrganizationSnapshotResource`.
+3. **Форматирование кода (Laravel Pint)**:
+   - Соблюдение стандартов PSR-12 и Laravel Code Style.
+   - Команда форматирования: `npm run format` (или `cd backend && composer format`).
+4. **Фронтенд: Политика «Zero any»**:
+   - Полный запрет использования `any` в TypeScript коде через ESLint (`@typescript-eslint/no-explicit-any: "error"`).
+   - Проверка типов через `vue-tsc --noEmit`.
+5. **CI/CD Pipeline (GitHub Actions)**:
+   - Пайплайн `.github/workflows/ci.yml` автоматически запускается на каждый push и pull request.
+   - Выполняет параллельные проверки:
+     - Frontend: ESLint (`zero any`), Vite Build & `vue-tsc`.
+     - Backend: Laravel Pint, Larastan Level 6, PHPUnit (Feature/Unit тесты).
+
+### Команды комплексной проверки:
+```bash
+# Запустить ВСЕ проверки проекта (ESLint, PHPStan, Pint, PHPUnit, Frontend Build):
+npm run test:all
+
+# Проверить форматирование и линтинг:
+npm run lint
+
+# Автоматически отформатировать весь бэкенд через Laravel Pint:
+npm run format
+```
+
+---
+
 ## 🏗 Архитектура и принципы проектирования
 
 Проект строго следует **Dependency Inversion Principle (DIP)**:
