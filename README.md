@@ -29,7 +29,18 @@
    - **Фильтрация и сортировка**: фильтр по количеству звёзд (1–5) и сортировка по дате / оценке.
    - **Вкладка «История изменений (Снимки)»**: визуализация снимков данных до/после каждого цикла синхронизации.
 
-4. **Административный контур и безопасность (`/api/admin/*`)**:
+4. **Интерактивная панель администратора (`/admin`)**:
+   - **Дашборд системных метрик**: статус пула прокси (готовые к работе, на охлаждении, средняя задержка в мс), объемы базы данных (число организаций, отзывов, снимков), мониторинг очередей задач и сбоев (`failed_jobs`), версия PHP и Laravel.
+   - **Управление пулом ротации прокси в реальном времени**:
+     - Интерактивная таблица с фильтрами по статусам (Все, Активные, Охлаждение, Отключенные) и поиском по IP/хосту.
+     - Маскированные эндпоинты (`http://user:***@host:port`), фиксация ошибок и средней задержки.
+     - Мгновенное включение / отключение прокси в 1 клик и удаление из пула.
+     - Модальное окно пакетного добавления прокси-серверов в различных форматах.
+   - **Безопасность и разграничение доступа**:
+     - Маршрут `/admin` защищен Navigation Guard во Vue Router по флагу `is_admin`.
+     - Ссылка в шапке приложения отображается только для авторизованных администраторов.
+
+5. **Административный контур бэкенда и безопасность (`/api/admin/*`)**:
    - Двухуровневый контроль доступа (**Middleware `admin.access`**):
      - Либо сессия администратора с флагом `is_admin: true` через Laravel Sanctum (пользователь `admin@georeviews.local`).
      - Либо выделенный сервисный ключ `X-Admin-Key` / `X-API-Key` (защита от timing-атак через `hash_equals()`) для внешних скриптов и провайдеров.
@@ -105,25 +116,28 @@ npm run build
 
 1. **Строгая типизация бэкенда (`declare(strict_types=1);`)**:
    - Во всех файлах бэкенда (`app/` и `tests/`) включена директива `declare(strict_types=1);`.
-   - Полный статический анализ через **PHPStan / Larastan (Level 6)** (`backend/phpstan.neon` без единой ошибки).
-2. **Унификация API (Laravel API Resources)**:
-   - Все контроллеры возвращают строго типизированные `JsonResource`: `OrganizationResource`, `ReviewResource`, `OrganizationSnapshotResource`.
-3. **Форматирование кода (Laravel Pint)**:
+   - Полный статический анализ через **PHPStan / Larastan (Level 8)** (`backend/phpstan.neon` без единой ошибки, строгий контроль nullable типов, параметров и замыканий).
+2. **Индексация базы данных для масштабирования (Composite Indexes)**:
+   - Составной индекс `[organization_id, rating, published_at]` в таблице `reviews` для мгновенной фильтрации и постраничной навигации без `filesort`.
+   - Индекс по полю `sync_status` в таблице `organizations` для мгновенной выборки фоновыми воркерами.
+3. **Унификация API (Laravel API Resources)**:
+   - Все контроллеры возвращают строго типизированные `JsonResource`: `OrganizationResource`, `ReviewResource`, `OrganizationSnapshotResource`, `ProxyServerResource`.
+4. **Форматирование кода (Laravel Pint)**:
    - Соблюдение стандартов PSR-12 и Laravel Code Style.
    - Команда форматирования: `npm run format` (или `cd backend && composer format`).
-4. **Фронтенд: Политика «Zero any» и компонентные тесты (Vitest)**:
+5. **Фронтенд: Политика «Zero any» и юнит/компонентные тесты (Vitest)**:
    - Полный запрет использования `any` в TypeScript коде через ESLint (`@typescript-eslint/no-explicit-any: "error"`).
-   - Компонентные и юнит-тесты на **Vitest** и `@vue/test-utils` (проверка `RatingStars.vue`, `Pagination.vue`, `ReviewCard.vue`).
+   - 19 тестов на **Vitest** и `@vue/test-utils` (компоненты `RatingStars.vue`, `Pagination.vue`, `ReviewCard.vue` и стор `useAdminStore`).
    - Проверка типов через `vue-tsc --noEmit`.
-5. **Защита API и Rate Limiting**:
+6. **Защита API и Rate Limiting**:
    - Настроены именованные лимитеры (`throttle:api`, `throttle:login`, `throttle:sync-organizations`) для защиты от DDoS и предотвращения банов от Яндекс.Карт.
-6. **Контекстное логирование (Structured Logging)**:
+7. **Контекстное логирование (Structured Logging)**:
    - Логирование синхронизации с контекстом `organization_id`, `yandex_org_id`, замером времени запросов `duration_ms` и детекцией капчи.
-7. **CI/CD Pipeline (GitHub Actions)**:
+8. **CI/CD Pipeline (GitHub Actions)**:
    - Пайплайн `.github/workflows/ci.yml` автоматически запускается на каждый push и pull request.
    - Выполняет параллельные проверки:
-     - Frontend: ESLint (`zero any`), Vitest (компонентные тесты), Vite Build & `vue-tsc`.
-     - Backend: Laravel Pint, Larastan Level 6, PHPUnit (Feature/Unit тесты краевых случаев и архитектуры).
+     - Frontend: ESLint (`zero any`), Vitest (19 тестов), Vite Build & `vue-tsc`.
+     - Backend: Laravel Pint, Larastan Level 8, PHPUnit (44 Feature/Unit тестов, 300 проверок краевых случаев и архитектуры).
 
 ### Команды комплексной проверки:
 ```bash
