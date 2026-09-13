@@ -320,7 +320,7 @@ class YandexMapsParserService implements YandexParserInterface
         $businessComment = $raw['businessComment'] ?? null;
 
         return new ParsedReviewDto(
-            yandexReviewId: (string) ($raw['reviewId'] ?? md5(json_encode($raw))),
+            yandexReviewId: (string) ($raw['reviewId'] ?? md5((string) json_encode($raw))),
             authorName: isset($author['name']) ? (string) $author['name'] : 'Пользователь',
             authorAvatarUrl: ! empty($author['avatarUrl']) ? (string) $author['avatarUrl'] : null,
             authorLevel: isset($author['professionLevel']) ? (string) $author['professionLevel'] : (isset($author['rtb']) ? (string) $author['rtb'] : null),

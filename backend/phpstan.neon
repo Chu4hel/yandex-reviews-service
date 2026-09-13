@@ -6,8 +6,8 @@ parameters:
         - app/
         - routes/
 
-    # Уровень проверки типов (Level 6: строгий контроль параметров и возвращаемых типов)
-    level: 6
+    # Уровень проверки типов (Level 8: строгий контроль nullable типов, параметров и замыканий)
+    level: 8
 
     ignoreErrors:
         - '#uses generic trait Illuminate\\Database\\Eloquent\\Factories\\HasFactory#'

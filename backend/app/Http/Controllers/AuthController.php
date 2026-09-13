@@ -51,11 +51,16 @@ class AuthController extends Controller
     {
         $user = $request->user();
 
+        if (! $user) {
+            return response()->json(['message' => 'Не авторизован'], 401);
+        }
+
         return response()->json([
             'user' => [
                 'id' => $user->id,
                 'name' => $user->name,
                 'email' => $user->email,
+                'is_admin' => (bool) $user->is_admin,
             ],
         ]);
     }
