@@ -24,10 +24,11 @@ COPY backend/composer.* ./
 RUN composer install --no-interaction --no-scripts --prefer-dist
 
 COPY backend ./
+COPY docker/entrypoint-backend.sh /usr/local/bin/entrypoint-backend.sh
+RUN chmod +x /usr/local/bin/entrypoint-backend.sh
 
 RUN composer run-script post-autoload-dump
-RUN touch database/database.sqlite && php artisan migrate --force && php artisan db:seed --force
 
 EXPOSE 8000
 
-CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]
+ENTRYPOINT ["/usr/local/bin/entrypoint-backend.sh"]
