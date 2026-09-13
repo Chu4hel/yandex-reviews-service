@@ -2,9 +2,13 @@
 
 namespace Database\Seeders;
 
+use App\Models\Organization;
+use App\Models\OrganizationSnapshot;
+use App\Models\Review;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
@@ -16,16 +20,16 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         // 1. Seed user for authentication
-        $user = \App\Models\User::firstOrCreate(
+        $user = User::firstOrCreate(
             ['email' => 'admin@georeviews.local'],
             [
                 'name' => 'Администратор',
-                'password' => \Illuminate\Support\Facades\Hash::make('password'),
+                'password' => Hash::make('password'),
             ]
         );
 
         // 2. Seed a demonstration organization
-        $org = \App\Models\Organization::firstOrCreate(
+        $org = Organization::firstOrCreate(
             ['yandex_org_id' => '67037665858'],
             [
                 'name' => 'Додо Пицца',
@@ -41,7 +45,7 @@ class DatabaseSeeder extends Seeder
         );
 
         // 3. Seed initial snapshots
-        \App\Models\OrganizationSnapshot::firstOrCreate(
+        OrganizationSnapshot::firstOrCreate(
             ['organization_id' => $org->id],
             [
                 'rating_before' => 4.85,
@@ -107,9 +111,9 @@ class DatabaseSeeder extends Seeder
             ];
 
             foreach ($sampleReviews as $i => $rev) {
-                \App\Models\Review::create(array_merge($rev, [
+                Review::create(array_merge($rev, [
                     'organization_id' => $org->id,
-                    'yandex_review_id' => 'sample_seed_rev_' . ($i + 1),
+                    'yandex_review_id' => 'sample_seed_rev_'.($i + 1),
                 ]));
             }
         }

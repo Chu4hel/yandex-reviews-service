@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Controllers;
 
 use App\Http\Requests\LoginRequest;
@@ -15,7 +17,7 @@ class AuthController extends Controller
     {
         $user = User::where('email', $request->input('email'))->first();
 
-        if (!$user || !Hash::check($request->input('password'), $user->password)) {
+        if (! $user || ! Hash::check($request->input('password'), $user->password)) {
             throw ValidationException::withMessages([
                 'email' => ['Неверный email или пароль.'],
             ]);

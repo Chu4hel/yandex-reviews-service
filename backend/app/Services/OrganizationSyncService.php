@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Services;
 
 use App\Domain\Contracts\YandexParserInterface;
@@ -18,14 +20,11 @@ class OrganizationSyncService
 {
     public function __construct(
         protected YandexParserInterface $parser
-    ) {
-    }
+    ) {}
 
     /**
      * Connect an organization by Yandex Maps URL or ID.
      *
-     * @param string $inputUrl
-     * @return Organization
      * @throws YandexParserException
      */
     public function connectOrganization(string $inputUrl): Organization
@@ -97,9 +96,8 @@ class OrganizationSyncService
     /**
      * Perform full sync of reviews for an organization.
      *
-     * @param Organization $organization
-     * @param int $maxPages Maximum pages to fetch (12 pages * 50 = 600 reviews)
-     * @return SyncResultDto
+     * @param  int  $maxPages  Maximum pages to fetch (12 pages * 50 = 600 reviews)
+     *
      * @throws YandexParserException
      */
     public function syncOrganizationReviews(Organization $organization, int $maxPages = 12): SyncResultDto
@@ -149,7 +147,7 @@ class OrganizationSyncService
                 $progress = (int) round(($page / $totalPagesToScan) * 100);
                 $organization->update(['sync_progress' => min(99, $progress)]);
 
-                if (!$batch->hasNextPage) {
+                if (! $batch->hasNextPage) {
                     break;
                 }
 
@@ -207,8 +205,6 @@ class OrganizationSyncService
     /**
      * Idempotently upsert review into database.
      *
-     * @param int $organizationId
-     * @param ParsedReviewDto $dto
      * @return bool True if created, False if updated
      */
     protected function upsertReview(int $organizationId, ParsedReviewDto $dto): bool
@@ -248,6 +244,7 @@ class OrganizationSyncService
 
         if ($review) {
             $review->update($attributes);
+
             return false;
         }
 

@@ -1,11 +1,13 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Domain\DTO;
 
 class ParsedOrganizationDto
 {
     /**
-     * @param array<int, ParsedReviewDto> $initialReviews
+     * @param  array<int, ParsedReviewDto>  $initialReviews
      */
     public function __construct(
         public readonly string $yandexOrgId,
@@ -17,6 +19,5 @@ class ParsedOrganizationDto
         public readonly int $reviewsCount,
         public readonly array $initialReviews = [],
         public readonly int $totalPages = 1,
-    ) {
-    }
+    ) {}
 }

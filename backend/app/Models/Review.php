@@ -1,10 +1,13 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Carbon;
 
 /**
  * Model Review
@@ -17,11 +20,11 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property string|null $author_level
  * @property int $rating
  * @property string|null $text
- * @property \Illuminate\Support\Carbon|null $published_at
+ * @property Carbon|null $published_at
  * @property string|null $business_response_text
- * @property \Illuminate\Support\Carbon|null $business_response_at
- * @property \Illuminate\Support\Carbon|null $created_at
- * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property Carbon|null $business_response_at
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
  */
 class Review extends Model
 {

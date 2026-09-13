@@ -1,7 +1,11 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Providers;
 
+use App\Domain\Contracts\YandexParserInterface;
+use App\Infrastructure\Services\YandexMapsParserService;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -12,8 +16,8 @@ class AppServiceProvider extends ServiceProvider
     public function register(): void
     {
         $this->app->singleton(
-            \App\Domain\Contracts\YandexParserInterface::class,
-            \App\Infrastructure\Services\YandexMapsParserService::class
+            YandexParserInterface::class,
+            YandexMapsParserService::class
         );
     }
 

@@ -1,7 +1,10 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Requests;
 
+use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 
 class ConnectOrganizationRequest extends FormRequest
@@ -12,7 +15,7 @@ class ConnectOrganizationRequest extends FormRequest
     }
 
     /**
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
+     * @return array<string, ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
@@ -27,7 +30,7 @@ class ConnectOrganizationRequest extends FormRequest
                         || preg_match('/maps\.yandex\.[a-z]+/i', $value)
                         || preg_match('/[?&]oid=\d+/', $value);
 
-                    if (!$isValid) {
+                    if (! $isValid) {
                         $fail('Укажите корректную ссылку на организацию в Яндекс.Картах (например: https://yandex.ru/maps/org/... или числовой ID)');
                     }
                 },

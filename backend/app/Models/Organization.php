@@ -1,10 +1,13 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 
 /**
  * Model Organization
@@ -19,10 +22,10 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
  * @property int $reviews_count
  * @property string $sync_status
  * @property int $sync_progress
- * @property \Illuminate\Support\Carbon|null $last_synced_at
+ * @property Carbon|null $last_synced_at
  * @property string|null $last_sync_error
- * @property \Illuminate\Support\Carbon|null $created_at
- * @property \Illuminate\Support\Carbon|null $updated_at
+ * @property Carbon|null $created_at
+ * @property Carbon|null $updated_at
  */
 class Organization extends Model
 {

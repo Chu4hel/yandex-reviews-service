@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Infrastructure\Services;
 
 use App\Domain\Contracts\YandexParserInterface;
@@ -52,8 +54,10 @@ class YandexMapsParserService implements YandexParserInterface
             // Extract slug if present
             if (preg_match('/\/maps\/org\/([a-zA-Z0-9_-]+)\/\d+/i', $input, $slugMatch)) {
                 $slug = $slugMatch[1];
+
                 return "https://yandex.ru/maps/org/{$slug}/{$orgId}/reviews/";
             }
+
             return "https://yandex.ru/maps/org/{$orgId}/reviews/";
         }
 
@@ -158,9 +162,8 @@ class YandexMapsParserService implements YandexParserInterface
     /**
      * Fetch HTML page from Yandex Maps and decode JSON state-view.
      *
-     * @param string $url
-     * @param int $page
      * @return array<string, mixed>
+     *
      * @throws YandexParserException
      */
     protected function fetchStateViewData(string $url, int $page = 1): array
@@ -187,8 +190,8 @@ class YandexMapsParserService implements YandexParserInterface
                 'Sec-Fetch-User' => '?1',
                 'Upgrade-Insecure-Requests' => '1',
             ])
-            ->timeout(20)
-            ->get($targetUrl);
+                ->timeout(20)
+                ->get($targetUrl);
         } catch (\Throwable $e) {
             Log::error('YandexMapsParser: HTTP request failed', [
                 'url' => $targetUrl,
@@ -202,11 +205,11 @@ class YandexMapsParserService implements YandexParserInterface
         // 1. Detect Captcha / Bot protection
         if (str_contains($html, 'captcha-page') || str_contains($html, 'smartcaptcha') || str_contains($html, 'showcaptcha')) {
             Log::warning('YandexMapsParser: Captcha detected', ['url' => $targetUrl]);
-            throw new YandexCaptchaDetectedException();
+            throw new YandexCaptchaDetectedException;
         }
 
         // 2. Extract state-view JSON
-        if (!preg_match('/<script type="application\/json" class="state-view">(.*?)<\/script>/s', $html, $matches)) {
+        if (! preg_match('/<script type="application\/json" class="state-view">(.*?)<\/script>/s', $html, $matches)) {
             Log::error('YandexMapsParser: state-view script not found in HTML', [
                 'url' => $targetUrl,
                 'statusCode' => $response->status(),
@@ -216,7 +219,7 @@ class YandexMapsParserService implements YandexParserInterface
         }
 
         $decoded = json_decode($matches[1], true);
-        if (!is_array($decoded)) {
+        if (! is_array($decoded)) {
             throw new YandexMarkupChangedException('Ошибка декодирования встроенного JSON состояния Яндекс.Карт.');
         }
 
@@ -226,9 +229,9 @@ class YandexMapsParserService implements YandexParserInterface
     /**
      * Extract organization item from state-view.
      *
-     * @param array<string, mixed> $data
-     * @param string $url
+     * @param  array<string, mixed>  $data
      * @return array<string, mixed>
+     *
      * @throws YandexOrganizationNotFoundException
      */
     protected function extractOrganizationItem(array $data, string $url): array
@@ -254,8 +257,7 @@ class YandexMapsParserService implements YandexParserInterface
     /**
      * Map raw review array to ParsedReviewDto.
      *
-     * @param array<string, mixed> $raw
-     * @return ParsedReviewDto
+     * @param  array<string, mixed>  $raw
      */
     protected function mapReviewDto(array $raw): ParsedReviewDto
     {
@@ -265,7 +267,7 @@ class YandexMapsParserService implements YandexParserInterface
         return new ParsedReviewDto(
             yandexReviewId: (string) ($raw['reviewId'] ?? md5(json_encode($raw))),
             authorName: isset($author['name']) ? (string) $author['name'] : 'Пользователь',
-            authorAvatarUrl: !empty($author['avatarUrl']) ? (string) $author['avatarUrl'] : null,
+            authorAvatarUrl: ! empty($author['avatarUrl']) ? (string) $author['avatarUrl'] : null,
             authorLevel: isset($author['professionLevel']) ? (string) $author['professionLevel'] : (isset($author['rtb']) ? (string) $author['rtb'] : null),
             rating: (int) ($raw['rating'] ?? 5),
             text: isset($raw['text']) ? (string) $raw['text'] : null,
@@ -284,8 +286,8 @@ class YandexMapsParserService implements YandexParserInterface
             $response = Http::withHeaders([
                 'User-Agent' => $this->getRandomUserAgent(),
             ])
-            ->timeout(10)
-            ->get($url);
+                ->timeout(10)
+                ->get($url);
 
             return $response->effectiveUri() ? (string) $response->effectiveUri() : $url;
         } catch (\Throwable $e) {

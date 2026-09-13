@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Jobs;
 
 use App\Models\Organization;
@@ -29,14 +31,14 @@ class SyncOrganizationReviewsJob implements ShouldQueue
 
     public function __construct(
         public int $organizationId
-    ) {
-    }
+    ) {}
 
     public function handle(OrganizationSyncService $syncService): void
     {
         $organization = Organization::find($this->organizationId);
-        if (!$organization) {
+        if (! $organization) {
             Log::warning('SyncOrganizationReviewsJob: Organization not found', ['id' => $this->organizationId]);
+
             return;
         }
 

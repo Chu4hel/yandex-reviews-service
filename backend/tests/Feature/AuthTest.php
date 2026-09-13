@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Feature;
 
 use App\Models\User;
@@ -52,14 +54,14 @@ class AuthTest extends TestCase
         $token = $user->createToken('test_token')->plainTextToken;
 
         // Get user profile
-        $response = $this->withHeader('Authorization', 'Bearer ' . $token)
+        $response = $this->withHeader('Authorization', 'Bearer '.$token)
             ->getJson('/api/auth/user');
 
         $response->assertStatus(200)
             ->assertJsonPath('user.email', $user->email);
 
         // Logout
-        $logoutResponse = $this->withHeader('Authorization', 'Bearer ' . $token)
+        $logoutResponse = $this->withHeader('Authorization', 'Bearer '.$token)
             ->postJson('/api/auth/logout');
 
         $logoutResponse->assertStatus(200);

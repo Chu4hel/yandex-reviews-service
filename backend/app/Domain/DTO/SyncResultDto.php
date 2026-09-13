@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Domain\DTO;
 
 class SyncResultDto
@@ -14,6 +16,5 @@ class SyncResultDto
         public readonly int $reviewsCountBefore,
         public readonly int $reviewsCountAfter,
         public readonly string $status,
-    ) {
-    }
+    ) {}
 }

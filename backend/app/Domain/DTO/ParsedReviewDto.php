@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Domain\DTO;
 
 class ParsedReviewDto
@@ -14,8 +16,7 @@ class ParsedReviewDto
         public readonly ?string $publishedAt,
         public readonly ?string $businessResponseText = null,
         public readonly ?string $businessResponseAt = null,
-    ) {
-    }
+    ) {}
 
     /**
      * @return array<string, mixed>

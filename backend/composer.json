@@ -53,6 +53,12 @@
         "phpstan": [
             "vendor/bin/phpstan analyse"
         ],
+        "format": [
+            "vendor/bin/pint"
+        ],
+        "format:test": [
+            "vendor/bin/pint --test"
+        ],
         "post-autoload-dump": [
             "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
             "@php artisan package:discover --ansi"
