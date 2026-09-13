@@ -25,8 +25,12 @@ class DatabaseSeeder extends Seeder
             [
                 'name' => 'Администратор',
                 'password' => Hash::make('password'),
+                'is_admin' => true,
             ]
         );
+        if (! $user->is_admin) {
+            $user->update(['is_admin' => true]);
+        }
 
         // 2. Seed a demonstration organization
         $org = Organization::firstOrCreate(

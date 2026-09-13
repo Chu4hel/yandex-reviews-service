@@ -16,14 +16,14 @@ class ProxyApiTest extends TestCase
     public function test_guest_cannot_access_proxy_api(): void
     {
         $response = $this->getJson('/api/proxies');
-        $response->assertStatus(401);
+        $response->assertStatus(403);
     }
 
-    public function test_authenticated_user_can_add_proxies_in_batch(): void
+    public function test_authenticated_admin_can_add_proxies_in_batch(): void
     {
-        $user = User::factory()->create();
+        $admin = User::factory()->create(['is_admin' => true]);
 
-        $response = $this->actingAs($user, 'sanctum')->postJson('/api/proxies', [
+        $response = $this->actingAs($admin, 'sanctum')->postJson('/api/proxies', [
             'proxies' => [
                 'http://user1:pass1@10.0.0.1:8080',
                 'socks5://10.0.0.2:1080',
@@ -45,9 +45,9 @@ class ProxyApiTest extends TestCase
         ]);
     }
 
-    public function test_authenticated_user_can_list_proxies(): void
+    public function test_authenticated_admin_can_list_proxies(): void
     {
-        $user = User::factory()->create();
+        $admin = User::factory()->create(['is_admin' => true]);
 
         ProxyServer::create([
             'protocol' => 'http',
@@ -56,7 +56,7 @@ class ProxyApiTest extends TestCase
             'is_active' => true,
         ]);
 
-        $response = $this->actingAs($user, 'sanctum')->getJson('/api/proxies');
+        $response = $this->actingAs($admin, 'sanctum')->getJson('/api/proxies');
 
         $response->assertStatus(200);
         $response->assertJsonCount(1, 'data');
@@ -64,9 +64,9 @@ class ProxyApiTest extends TestCase
         $response->assertJsonPath('data.0.port', 3128);
     }
 
-    public function test_authenticated_user_can_toggle_proxy_state(): void
+    public function test_authenticated_admin_can_toggle_proxy_state(): void
     {
-        $user = User::factory()->create();
+        $admin = User::factory()->create(['is_admin' => true]);
 
         $proxy = ProxyServer::create([
             'protocol' => 'http',
@@ -75,22 +75,22 @@ class ProxyApiTest extends TestCase
             'is_active' => true,
         ]);
 
-        $response = $this->actingAs($user, 'sanctum')->postJson("/api/proxies/{$proxy->id}/toggle");
+        $response = $this->actingAs($admin, 'sanctum')->postJson("/api/proxies/{$proxy->id}/toggle");
 
         $response->assertStatus(200);
         $response->assertJsonPath('data.is_active', false);
         $this->assertFalse($proxy->fresh()->is_active);
 
         // Toggle back
-        $response2 = $this->actingAs($user, 'sanctum')->postJson("/api/proxies/{$proxy->id}/toggle");
+        $response2 = $this->actingAs($admin, 'sanctum')->postJson("/api/proxies/{$proxy->id}/toggle");
         $response2->assertStatus(200);
         $response2->assertJsonPath('data.is_active', true);
         $this->assertTrue($proxy->fresh()->is_active);
     }
 
-    public function test_authenticated_user_can_delete_proxy(): void
+    public function test_authenticated_admin_can_delete_proxy(): void
     {
-        $user = User::factory()->create();
+        $admin = User::factory()->create(['is_admin' => true]);
 
         $proxy = ProxyServer::create([
             'protocol' => 'http',
@@ -99,9 +99,25 @@ class ProxyApiTest extends TestCase
             'is_active' => true,
         ]);
 
-        $response = $this->actingAs($user, 'sanctum')->deleteJson("/api/proxies/{$proxy->id}");
+        $response = $this->actingAs($admin, 'sanctum')->deleteJson("/api/proxies/{$proxy->id}");
 
         $response->assertStatus(200);
         $this->assertDatabaseMissing('proxy_servers', ['id' => $proxy->id]);
+    }
+
+    public function test_can_manage_proxies_via_x_admin_key_without_session(): void
+    {
+        config(['services.admin.api_key' => 'secret-automation-key']);
+
+        $response = $this->withHeader('X-Admin-Key', 'secret-automation-key')
+            ->postJson('/api/admin/proxies', [
+                'proxy' => 'http://172.16.0.5:8888',
+            ]);
+
+        $response->assertStatus(201);
+        $this->assertDatabaseHas('proxy_servers', [
+            'host' => '172.16.0.5',
+            'port' => 8888,
+        ]);
     }
 }

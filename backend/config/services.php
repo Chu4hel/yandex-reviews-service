@@ -35,4 +35,8 @@ return [
         ],
     ],
 
+    'admin' => [
+        'api_key' => env('ADMIN_API_KEY', 'georeviews_secret_admin_key_2026'),
+    ],
+
 ];
