@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Domain\Contracts\ProxyRotatorInterface;
 use App\Domain\Contracts\YandexParserInterface;
+use App\Infrastructure\Services\DatabaseProxyRotator;
 use App\Infrastructure\Services\YandexMapsParserService;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -18,6 +20,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->singleton(
+            ProxyRotatorInterface::class,
+            DatabaseProxyRotator::class
+        );
+
         $this->app->singleton(
             YandexParserInterface::class,
             YandexMapsParserService::class

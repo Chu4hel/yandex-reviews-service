@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Infrastructure\Services;
 
+use App\Domain\Contracts\ProxyRotatorInterface;
 use App\Domain\Contracts\YandexParserInterface;
 use App\Domain\DTO\ParsedOrganizationDto;
 use App\Domain\DTO\ParsedReviewDto;
@@ -28,6 +29,10 @@ class YandexMapsParserService implements YandexParserInterface
         'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36 Edg/123.0.0.0',
     ];
+
+    public function __construct(
+        protected ?ProxyRotatorInterface $proxyRotator = null
+    ) {}
 
     public function normalizeUrl(string $input): string
     {
@@ -176,9 +181,10 @@ class YandexMapsParserService implements YandexParserInterface
 
         $ua = $this->getRandomUserAgent();
         $startTime = microtime(true);
+        $proxy = $this->proxyRotator?->getNextProxy();
 
         try {
-            $response = Http::withHeaders([
+            $httpClient = Http::withHeaders([
                 'User-Agent' => $ua,
                 'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
                 'Accept-Language' => 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
@@ -190,14 +196,25 @@ class YandexMapsParserService implements YandexParserInterface
                 'Sec-Fetch-Site' => 'none',
                 'Sec-Fetch-User' => '?1',
                 'Upgrade-Insecure-Requests' => '1',
-            ])
-                ->timeout(20)
-                ->get($targetUrl);
+            ])->timeout(20);
+
+            if ($proxy !== null) {
+                $httpClient = $httpClient->withOptions([
+                    'proxy' => $proxy->toHttpOption(),
+                ]);
+            }
+
+            $response = $httpClient->get($targetUrl);
         } catch (\Throwable $e) {
             $durationMs = (int) round((microtime(true) - $startTime) * 1000);
+            if ($this->proxyRotator !== null && $proxy !== null) {
+                $this->proxyRotator->markFailed($proxy->id, $e->getMessage());
+            }
+
             Log::error('YandexMapsParser: сетевой сбой при обращении к Яндекс.Картам', [
                 'target_url' => $targetUrl,
                 'page' => $page,
+                'proxy' => $proxy ? $proxy->toMaskedString() : 'direct',
                 'duration_ms' => $durationMs,
                 'error_class' => get_class($e),
                 'error' => $e->getMessage(),
@@ -210,9 +227,14 @@ class YandexMapsParserService implements YandexParserInterface
 
         // 1. Detect Captcha / Bot protection
         if (str_contains($html, 'captcha-page') || str_contains($html, 'smartcaptcha') || str_contains($html, 'showcaptcha')) {
+            if ($this->proxyRotator !== null && $proxy !== null) {
+                $this->proxyRotator->markCaptcha($proxy->id, 30);
+            }
+
             Log::warning('YandexMapsParser: обнаружена капча / антибот проверка Яндекса', [
                 'target_url' => $targetUrl,
                 'page' => $page,
+                'proxy' => $proxy ? $proxy->toMaskedString() : 'direct',
                 'duration_ms' => $durationMs,
                 'http_status' => $response->status(),
                 'user_agent' => $ua,
@@ -225,6 +247,7 @@ class YandexMapsParserService implements YandexParserInterface
             Log::error('YandexMapsParser: тег state-view не найден в ответе (возможна смена разметки)', [
                 'target_url' => $targetUrl,
                 'page' => $page,
+                'proxy' => $proxy ? $proxy->toMaskedString() : 'direct',
                 'http_status' => $response->status(),
                 'duration_ms' => $durationMs,
                 'html_snippet' => mb_substr($html, 0, 300),
@@ -237,14 +260,20 @@ class YandexMapsParserService implements YandexParserInterface
             Log::error('YandexMapsParser: ошибка декодирования JSON state-view', [
                 'target_url' => $targetUrl,
                 'page' => $page,
+                'proxy' => $proxy ? $proxy->toMaskedString() : 'direct',
                 'json_error' => json_last_error_msg(),
             ]);
             throw new YandexMarkupChangedException('Ошибка декодирования встроенного JSON состояния Яндекс.Карт.');
         }
 
+        if ($this->proxyRotator !== null && $proxy !== null) {
+            $this->proxyRotator->markSuccess($proxy->id, $durationMs);
+        }
+
         Log::debug('YandexMapsParser: успешно получено и декодировано состояние state-view', [
             'target_url' => $targetUrl,
             'page' => $page,
+            'proxy' => $proxy ? $proxy->toMaskedString() : 'direct',
             'http_status' => $response->status(),
             'duration_ms' => $durationMs,
         ]);

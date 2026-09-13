@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\OrganizationController;
+use App\Http\Controllers\ProxyServerController;
 use Illuminate\Support\Facades\Route;
 
 // Health check
@@ -32,4 +33,12 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->prefix('organizations')->gr
     Route::post('/{organization}/sync', [OrganizationController::class, 'sync'])->middleware('throttle:sync-organizations');
     Route::get('/{organization}/reviews', [OrganizationController::class, 'reviews']);
     Route::get('/{organization}/snapshots', [OrganizationController::class, 'snapshots']);
+});
+
+// Proxy pool management routes (protected with Sanctum and throttled)
+Route::middleware(['auth:sanctum', 'throttle:api'])->prefix('proxies')->group(function () {
+    Route::get('/', [ProxyServerController::class, 'index']);
+    Route::post('/', [ProxyServerController::class, 'store']);
+    Route::post('/{proxy}/toggle', [ProxyServerController::class, 'toggle']);
+    Route::delete('/{proxy}', [ProxyServerController::class, 'destroy']);
 });
