@@ -1,0 +1,33 @@
+FROM php:8.2-cli-alpine
+
+RUN apk add --no-cache \
+    sqlite-dev \
+    curl-dev \
+    libxml2-dev \
+    oniguruma-dev \
+    git \
+    unzip \
+    bash
+
+RUN docker-php-ext-install \
+    pdo_sqlite \
+    curl \
+    mbstring \
+    xml \
+    bcmath
+
+COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+
+WORKDIR /var/www/html
+
+COPY backend/composer.* ./
+RUN composer install --no-interaction --no-scripts --prefer-dist
+
+COPY backend ./
+
+RUN composer run-script post-autoload-dump
+RUN touch database/database.sqlite && php artisan migrate --force && php artisan db:seed --force
+
+EXPOSE 8000
+
+CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8000"]

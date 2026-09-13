@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    container_name: georeviews_backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/storage:/var/www/html/storage
+      - ./backend/database:/var/www/html/database
+    environment:
+      - APP_ENV=local
+      - APP_DEBUG=true
+      - APP_KEY=base64:BxFhp3evXnkfcDrfi7e+3j64uvyuy4CBKgwMnFMEzU4=
+      - APP_URL=http://localhost:8000
+      - DB_CONNECTION=sqlite
+      - QUEUE_CONNECTION=database
+
+  queue:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    container_name: georeviews_queue
+    restart: unless-stopped
+    command: php artisan queue:work --tries=3 --timeout=120
+    volumes:
+      - ./backend/storage:/var/www/html/storage
+      - ./backend/database:/var/www/html/database
+    environment:
+      - APP_ENV=local
+      - APP_DEBUG=true
+      - APP_KEY=base64:BxFhp3evXnkfcDrfi7e+3j64uvyuy4CBKgwMnFMEzU4=
+      - DB_CONNECTION=sqlite
+      - QUEUE_CONNECTION=database
+    depends_on:
+      - backend
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.frontend
+    container_name: georeviews_frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "5173:80"
+    depends_on:
+      - backend
