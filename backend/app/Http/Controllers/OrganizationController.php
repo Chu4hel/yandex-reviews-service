@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Controllers;
 
 use App\Domain\Exceptions\YandexCaptchaDetectedException;
@@ -7,6 +9,9 @@ use App\Domain\Exceptions\YandexMarkupChangedException;
 use App\Domain\Exceptions\YandexOrganizationNotFoundException;
 use App\Domain\Exceptions\YandexParserException;
 use App\Http\Requests\ConnectOrganizationRequest;
+use App\Http\Resources\OrganizationResource;
+use App\Http\Resources\OrganizationSnapshotResource;
+use App\Http\Resources\ReviewResource;
 use App\Jobs\SyncOrganizationReviewsJob;
 use App\Models\Organization;
 use App\Services\OrganizationSyncService;
@@ -18,8 +23,7 @@ class OrganizationController extends Controller
 {
     public function __construct(
         protected OrganizationSyncService $syncService
-    ) {
-    }
+    ) {}
 
     /**
      * List all connected organizations.
@@ -29,7 +33,7 @@ class OrganizationController extends Controller
         $organizations = Organization::orderByDesc('created_at')->get();
 
         return response()->json([
-            'data' => $organizations,
+            'data' => OrganizationResource::collection($organizations),
         ]);
     }
 
@@ -45,7 +49,7 @@ class OrganizationController extends Controller
 
             return response()->json([
                 'message' => 'Организация успешно подключена',
-                'data' => $organization,
+                'data' => new OrganizationResource($organization),
             ], 201);
         } catch (YandexCaptchaDetectedException $e) {
             return response()->json([
@@ -73,7 +77,7 @@ class OrganizationController extends Controller
             ]);
 
             return response()->json([
-                'message' => 'Внутренняя ошибка сервера при подключении организации: ' . $e->getMessage(),
+                'message' => 'Внутренняя ошибка сервера при подключении организации: '.$e->getMessage(),
                 'error_type' => 'server_error',
             ], 500);
         }
@@ -85,7 +89,7 @@ class OrganizationController extends Controller
     public function show(Organization $organization): JsonResponse
     {
         return response()->json([
-            'data' => $organization,
+            'data' => new OrganizationResource($organization),
         ]);
     }
 
@@ -99,7 +103,7 @@ class OrganizationController extends Controller
                 'id' => $organization->id,
                 'sync_status' => $organization->sync_status,
                 'sync_progress' => $organization->sync_progress,
-                'last_synced_at' => $organization->last_synced_at,
+                'last_synced_at' => $organization->last_synced_at?->toIso8601String(),
                 'last_sync_error' => $organization->last_sync_error,
                 'rating' => $organization->rating,
                 'ratings_count' => $organization->ratings_count,
@@ -116,7 +120,7 @@ class OrganizationController extends Controller
         if ($organization->sync_status === 'syncing') {
             return response()->json([
                 'message' => 'Синхронизация уже выполняется.',
-                'data' => $organization,
+                'data' => new OrganizationResource($organization),
             ], 409);
         }
 
@@ -129,12 +133,12 @@ class OrganizationController extends Controller
 
                 return response()->json([
                     'message' => 'Синхронизация успешно завершена.',
-                    'data' => $organization->fresh(),
+                    'data' => new OrganizationResource($organization->fresh()),
                     'result' => $result,
                 ]);
             } catch (\Throwable $e) {
                 return response()->json([
-                    'message' => 'Ошибка при синхронизации: ' . $e->getMessage(),
+                    'message' => 'Ошибка при синхронизации: '.$e->getMessage(),
                     'error' => $e->getMessage(),
                 ], 500);
             }
@@ -151,7 +155,7 @@ class OrganizationController extends Controller
 
         return response()->json([
             'message' => 'Синхронизация запущена в фоновом режиме.',
-            'data' => $organization->fresh(),
+            'data' => new OrganizationResource($organization->fresh()),
         ]);
     }
 
@@ -184,21 +188,14 @@ class OrganizationController extends Controller
         $paginated = $query->paginate($perPage);
 
         return response()->json([
-            'data' => $paginated->items(),
+            'data' => ReviewResource::collection($paginated->items()),
             'meta' => [
                 'current_page' => $paginated->currentPage(),
                 'last_page' => $paginated->lastPage(),
                 'per_page' => $paginated->perPage(),
                 'total' => $paginated->total(),
             ],
-            'organization' => [
-                'id' => $organization->id,
-                'name' => $organization->name,
-                'rating' => $organization->rating,
-                'ratings_count' => $organization->ratings_count,
-                'reviews_count' => $organization->reviews_count,
-                'last_synced_at' => $organization->last_synced_at,
-            ],
+            'organization' => new OrganizationResource($organization),
         ]);
     }
 
@@ -210,7 +207,7 @@ class OrganizationController extends Controller
         $snapshots = $organization->snapshots()->get();
 
         return response()->json([
-            'data' => $snapshots,
+            'data' => OrganizationSnapshotResource::collection($snapshots),
         ]);
     }
 }

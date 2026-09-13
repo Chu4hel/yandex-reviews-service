@@ -1,15 +1,18 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Tests\Feature;
 
 use App\Domain\Contracts\YandexParserInterface;
 use App\Domain\DTO\ParsedOrganizationDto;
 use App\Domain\DTO\ParsedReviewDto;
-use App\Domain\DTO\ParsedReviewsBatchDto;
+use App\Jobs\SyncOrganizationReviewsJob;
 use App\Models\Organization;
 use App\Models\Review;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Queue;
 use Mockery\MockInterface;
 use Tests\TestCase;
 
@@ -18,6 +21,7 @@ class OrganizationApiTest extends TestCase
     use RefreshDatabase;
 
     protected User $user;
+
     protected string $token;
 
     protected function setUp(): void
@@ -38,7 +42,7 @@ class OrganizationApiTest extends TestCase
             'reviews_count' => 85,
         ]);
 
-        $response = $this->withHeader('Authorization', 'Bearer ' . $this->token)
+        $response = $this->withHeader('Authorization', 'Bearer '.$this->token)
             ->getJson('/api/organizations');
 
         $response->assertStatus(200)
@@ -79,14 +83,14 @@ class OrganizationApiTest extends TestCase
                 ));
         });
 
-        \Illuminate\Support\Facades\Queue::fake();
+        Queue::fake();
 
-        $response = $this->withHeader('Authorization', 'Bearer ' . $this->token)
+        $response = $this->withHeader('Authorization', 'Bearer '.$this->token)
             ->postJson('/api/organizations', [
                 'url' => 'https://yandex.ru/maps/org/11223344/',
             ]);
 
-        \Illuminate\Support\Facades\Queue::assertPushed(\App\Jobs\SyncOrganizationReviewsJob::class);
+        Queue::assertPushed(SyncOrganizationReviewsJob::class);
 
         $response->assertStatus(201)
             ->assertJsonPath('data.name', 'Пиццерия Тест')
@@ -126,7 +130,7 @@ class OrganizationApiTest extends TestCase
         }
 
         // Request page 1
-        $response1 = $this->withHeader('Authorization', 'Bearer ' . $this->token)
+        $response1 = $this->withHeader('Authorization', 'Bearer '.$this->token)
             ->getJson("/api/organizations/{$org->id}/reviews?page=1");
 
         $response1->assertStatus(200)
@@ -137,7 +141,7 @@ class OrganizationApiTest extends TestCase
             ->assertJsonPath('meta.total', 75);
 
         // Request page 2
-        $response2 = $this->withHeader('Authorization', 'Bearer ' . $this->token)
+        $response2 = $this->withHeader('Authorization', 'Bearer '.$this->token)
             ->getJson("/api/organizations/{$org->id}/reviews?page=2");
 
         $response2->assertStatus(200)
