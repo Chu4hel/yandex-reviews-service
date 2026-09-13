@@ -8,6 +8,11 @@
     "dev:backend": "cd backend && php artisan serve",
     "dev:frontend": "cd frontend && npm run dev",
     "build:frontend": "cd frontend && npm run build",
+    "lint": "npm run lint:frontend && npm run lint:backend",
+    "lint:frontend": "cd frontend && npm run lint",
+    "lint:backend": "cd backend && composer phpstan",
+    "test": "cd backend && php artisan test",
+    "test:all": "npm run lint && npm run test && npm run build:frontend",
     "setup:backend": "cd backend && composer install && php artisan key:generate && php artisan migrate",
     "setup:frontend": "cd frontend && npm install",
     "setup": "npm run setup:backend && npm run setup:frontend"

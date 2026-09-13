@@ -53,11 +53,17 @@ class Organization extends Model
         ];
     }
 
+    /**
+     * @return HasMany<Review, $this>
+     */
     public function reviews(): HasMany
     {
         return $this->hasMany(Review::class)->orderBy('published_at', 'desc');
     }
 
+    /**
+     * @return HasMany<OrganizationSnapshot, $this>
+     */
     public function snapshots(): HasMany
     {
         return $this->hasMany(OrganizationSnapshot::class)->orderBy('snapshot_at', 'desc');

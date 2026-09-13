@@ -61,11 +61,11 @@ export const useOrganizationsStore = defineStore('organizations', () => {
         const axiosErr = err as { response?: { data?: { message?: string } } }
         const msg = axiosErr.response?.data?.message ?? 'Ошибка подключения карточки'
         error.value = msg
-        throw new Error(msg)
+        throw new Error(msg, { cause: err })
       }
       const msg = err instanceof Error ? err.message : 'Не удалось подключить организацию'
       error.value = msg
-      throw new Error(msg)
+      throw new Error(msg, { cause: err })
     } finally {
       isLoading.value = false
     }
@@ -119,7 +119,7 @@ export const useOrganizationsStore = defineStore('organizations', () => {
     } catch (err: unknown) {
       if (typeof err === 'object' && err !== null && 'response' in err) {
         const axiosErr = err as { response?: { data?: { message?: string } } }
-        throw new Error(axiosErr.response?.data?.message ?? 'Ошибка запуска синхронизации')
+        throw new Error(axiosErr.response?.data?.message ?? 'Ошибка запуска синхронизации', { cause: err })
       }
       throw err
     }
