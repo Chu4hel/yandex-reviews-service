@@ -82,6 +82,11 @@ jobs:
           cd frontend
           npm run lint
 
+      - name: Run Component & Unit Tests (Vitest)
+        run: |
+          cd frontend
+          npm run test
+
       - name: TypeScript TypeCheck and Vite Build
         run: |
           cd frontend
