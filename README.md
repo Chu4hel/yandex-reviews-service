@@ -104,19 +104,27 @@ npm run build
 3. **Форматирование кода (Laravel Pint)**:
    - Соблюдение стандартов PSR-12 и Laravel Code Style.
    - Команда форматирования: `npm run format` (или `cd backend && composer format`).
-4. **Фронтенд: Политика «Zero any»**:
+4. **Фронтенд: Политика «Zero any» и компонентные тесты (Vitest)**:
    - Полный запрет использования `any` в TypeScript коде через ESLint (`@typescript-eslint/no-explicit-any: "error"`).
+   - Компонентные и юнит-тесты на **Vitest** и `@vue/test-utils` (проверка `RatingStars.vue`, `Pagination.vue`, `ReviewCard.vue`).
    - Проверка типов через `vue-tsc --noEmit`.
-5. **CI/CD Pipeline (GitHub Actions)**:
+5. **Защита API и Rate Limiting**:
+   - Настроены именованные лимитеры (`throttle:api`, `throttle:login`, `throttle:sync-organizations`) для защиты от DDoS и предотвращения банов от Яндекс.Карт.
+6. **Контекстное логирование (Structured Logging)**:
+   - Логирование синхронизации с контекстом `organization_id`, `yandex_org_id`, замером времени запросов `duration_ms` и детекцией капчи.
+7. **CI/CD Pipeline (GitHub Actions)**:
    - Пайплайн `.github/workflows/ci.yml` автоматически запускается на каждый push и pull request.
    - Выполняет параллельные проверки:
-     - Frontend: ESLint (`zero any`), Vite Build & `vue-tsc`.
-     - Backend: Laravel Pint, Larastan Level 6, PHPUnit (Feature/Unit тесты).
+     - Frontend: ESLint (`zero any`), Vitest (компонентные тесты), Vite Build & `vue-tsc`.
+     - Backend: Laravel Pint, Larastan Level 6, PHPUnit (Feature/Unit тесты краевых случаев и архитектуры).
 
 ### Команды комплексной проверки:
 ```bash
-# Запустить ВСЕ проверки проекта (ESLint, PHPStan, Pint, PHPUnit, Frontend Build):
+# Запустить ВСЕ проверки проекта (ESLint, PHPStan, Pint, PHPUnit, Vitest, Frontend Build):
 npm run test:all
+
+# Запустить тесты фронтенда (Vitest):
+cd frontend && npm run test
 
 # Проверить форматирование и линтинг:
 npm run lint
