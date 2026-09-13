@@ -15,7 +15,7 @@ Route::get('/health', function () {
 
 // Authentication routes
 Route::prefix('auth')->group(function () {
-    Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
 
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/logout', [AuthController::class, 'logout']);
@@ -23,13 +23,13 @@ Route::prefix('auth')->group(function () {
     });
 });
 
-// Organization and Reviews routes (protected with Sanctum)
-Route::middleware('auth:sanctum')->prefix('organizations')->group(function () {
+// Organization and Reviews routes (protected with Sanctum and throttled)
+Route::middleware(['auth:sanctum', 'throttle:api'])->prefix('organizations')->group(function () {
     Route::get('/', [OrganizationController::class, 'index']);
-    Route::post('/', [OrganizationController::class, 'store']);
+    Route::post('/', [OrganizationController::class, 'store'])->middleware('throttle:sync-organizations');
     Route::get('/{organization}', [OrganizationController::class, 'show']);
     Route::get('/{organization}/status', [OrganizationController::class, 'status']);
-    Route::post('/{organization}/sync', [OrganizationController::class, 'sync']);
+    Route::post('/{organization}/sync', [OrganizationController::class, 'sync'])->middleware('throttle:sync-organizations');
     Route::get('/{organization}/reviews', [OrganizationController::class, 'reviews']);
     Route::get('/{organization}/snapshots', [OrganizationController::class, 'snapshots']);
 });
