@@ -289,7 +289,7 @@ const formatDateTime = (dateStr: string | null): string => {
         <div>
           <h3 class="text-base font-bold text-slate-900 dark:text-white">Добавить прокси-серверы в пул</h3>
           <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Введите адреса прокси по одному на строку. Поддерживаются форматы: <code class="text-red-600 font-mono">http://user:pass@host:port</code>, <code class="text-red-600 font-mono">socks5://host:port</code>, <code class="text-red-600 font-mono">ip:port</code>.
+            Введите адреса прокси по одному на строку. Поддерживаются любые форматы с авторизацией: <code class="text-red-600 font-mono">ip:port:login:password</code>, <code class="text-red-600 font-mono">ip:port@login:password</code>, <code class="text-red-600 font-mono">http://user:pass@host:port</code>, <code class="text-red-600 font-mono">socks5://...</code> или <code class="text-red-600 font-mono">ip:port</code>.
           </p>
         </div>
         <button
@@ -308,7 +308,7 @@ const formatDateTime = (dateStr: string | null): string => {
       <textarea
         v-model="rawProxiesInput"
         rows="4"
-        placeholder="http://proxy-provider.com:8080&#10;socks5://user:secret@185.123.45.67:1080&#10;192.168.1.100:3128"
+        placeholder="192.168.1.100:8080:myuser:secret123&#10;192.168.1.100:8080@myuser:secret123&#10;socks5://user:secret@185.123.45.67:1080&#10;192.168.1.100:3128"
         class="w-full font-mono text-xs p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:outline-hidden focus:ring-2 focus:ring-red-500 text-slate-800 dark:text-slate-100"
       ></textarea>
 

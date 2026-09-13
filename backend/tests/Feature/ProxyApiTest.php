@@ -27,11 +27,13 @@ class ProxyApiTest extends TestCase
             'proxies' => [
                 'http://user1:pass1@10.0.0.1:8080',
                 'socks5://10.0.0.2:1080',
+                '10.0.0.3:8080:customuser:custompass',
+                '10.0.0.4:3128@atuser:atpass',
             ],
         ]);
 
         $response->assertStatus(201);
-        $response->assertJsonPath('count', 2);
+        $response->assertJsonPath('count', 4);
         $this->assertDatabaseHas('proxy_servers', [
             'host' => '10.0.0.1',
             'port' => 8080,
@@ -42,6 +44,18 @@ class ProxyApiTest extends TestCase
             'host' => '10.0.0.2',
             'port' => 1080,
             'protocol' => 'socks5',
+        ]);
+        $this->assertDatabaseHas('proxy_servers', [
+            'host' => '10.0.0.3',
+            'port' => 8080,
+            'username' => 'customuser',
+            'password' => 'custompass',
+        ]);
+        $this->assertDatabaseHas('proxy_servers', [
+            'host' => '10.0.0.4',
+            'port' => 3128,
+            'username' => 'atuser',
+            'password' => 'atpass',
         ]);
     }
 

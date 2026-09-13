@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Models\ProxyServer;
+use App\Support\ProxyStringParser;
 use Illuminate\Console\Command;
 
 class ProxyAddCommand extends Command
@@ -14,7 +15,7 @@ class ProxyAddCommand extends Command
      *
      * @var string
      */
-    protected $signature = 'proxy:add {proxy : URL прокси (например http://user:pass@1.2.3.4:8080 или 1.2.3.4:8080)}';
+    protected $signature = 'proxy:add {proxy : Строка прокси (например ip:port, http://user:pass@ip:port, ip:port:user:pass, ip:port@user:pass)}';
 
     /**
      * The console command description.
@@ -30,37 +31,27 @@ class ProxyAddCommand extends Command
     {
         $input = trim((string) $this->argument('proxy'));
 
-        // If scheme is missing, prepend http://
-        if (! str_contains($input, '://')) {
-            $input = 'http://'.$input;
-        }
-
-        $parsed = parse_url($input);
-        if ($parsed === false || empty($parsed['host']) || empty($parsed['port'])) {
-            $this->error('Неверный формат строки прокси. Ожидается: [protocol://][user:password@]host:port');
+        $parsed = ProxyStringParser::parse($input);
+        if (! $parsed) {
+            $this->error('Неверный формат строки прокси. Поддерживаются форматы: host:port, host:port:user:password, host:port@user:password, [protocol://]user:password@host:port');
 
             return Command::FAILURE;
         }
 
-        $protocol = strtolower((string) ($parsed['scheme'] ?? 'http'));
-        $host = (string) $parsed['host'];
-        $port = (int) $parsed['port'];
-        $username = isset($parsed['user']) ? (string) $parsed['user'] : null;
-        $password = isset($parsed['pass']) ? (string) $parsed['pass'] : null;
-
         $proxy = ProxyServer::updateOrCreate(
-            ['host' => $host, 'port' => $port],
+            ['host' => $parsed['host'], 'port' => $parsed['port']],
             [
-                'protocol' => $protocol,
-                'username' => $username,
-                'password' => $password,
+                'protocol' => $parsed['protocol'],
+                'username' => $parsed['username'],
+                'password' => $parsed['password'],
                 'is_active' => true,
                 'cooldown_until' => null,
                 'fails_count' => 0,
             ]
         );
 
-        $this->info("Прокси-сервер [#{$proxy->id}] {$protocol}://{$host}:{$port} успешно добавлен и активирован в пуле.");
+        $authInfo = $parsed['username'] ? " с аутентификацией [{$parsed['username']}]" : '';
+        $this->info("Прокси-сервер [#{$proxy->id}] {$parsed['protocol']}://{$parsed['host']}:{$parsed['port']}{$authInfo} успешно добавлен и активирован в пуле.");
 
         return Command::SUCCESS;
     }

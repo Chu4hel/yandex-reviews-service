@@ -6,6 +6,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Resources\ProxyServerResource;
 use App\Models\ProxyServer;
+use App\Support\ProxyStringParser;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -110,22 +111,6 @@ class ProxyServerController extends Controller
      */
     private function parseProxyString(string $input): ?array
     {
-        $trimmed = trim($input);
-        if (! str_contains($trimmed, '://')) {
-            $trimmed = 'http://'.$trimmed;
-        }
-
-        $parsed = parse_url($trimmed);
-        if ($parsed === false || empty($parsed['host']) || empty($parsed['port'])) {
-            return null;
-        }
-
-        return [
-            'protocol' => strtolower((string) ($parsed['scheme'] ?? 'http')),
-            'host' => (string) $parsed['host'],
-            'port' => (int) $parsed['port'],
-            'username' => isset($parsed['user']) ? (string) $parsed['user'] : null,
-            'password' => isset($parsed['pass']) ? (string) $parsed['pass'] : null,
-        ];
+        return ProxyStringParser::parse($input);
     }
 }
