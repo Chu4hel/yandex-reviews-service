@@ -68,4 +68,17 @@ describe('ReviewCard.vue', () => {
 
     expect(wrapper.text()).not.toContain('Ответ организации')
   })
+
+  it('highlights matching search terms with mark tags safely', () => {
+    const wrapper = mount(ReviewCard, {
+      props: {
+        review: baseReview,
+        searchTerm: 'пицца теплый',
+      },
+    })
+
+    const html = wrapper.html()
+    expect(html).toContain('<mark class="bg-amber-200/90 dark:bg-amber-800/80 text-amber-950 dark:text-amber-100 px-0.5 rounded-xs font-semibold">пицца</mark>')
+    expect(html).toContain('<mark class="bg-amber-200/90 dark:bg-amber-800/80 text-amber-950 dark:text-amber-100 px-0.5 rounded-xs font-semibold">теплый</mark>')
+  })
 })

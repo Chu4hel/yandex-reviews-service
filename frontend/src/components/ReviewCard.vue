@@ -3,9 +3,65 @@ import { computed } from 'vue'
 import type { Review } from '@/types/review'
 import RatingStars from './RatingStars.vue'
 
-const props = defineProps<{
+interface Props {
   review: Review
-}>()
+  searchTerm?: string
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  searchTerm: '',
+})
+
+interface TextPart {
+  text: string
+  isMatch: boolean
+}
+
+const getHighlightedParts = (text: string | null | undefined): TextPart[] => {
+  if (!text) return []
+  const term = props.searchTerm?.trim()
+  if (!term) {
+    return [{ text, isMatch: false }]
+  }
+
+  // Извлекаем слова длиной от 1 символа
+  const rawWords = term.split(/[\s,.+-]+/).filter((w) => w.length >= 1)
+  if (rawWords.length === 0) {
+    return [{ text, isMatch: false }]
+  }
+
+  // Убираем дубликаты и сортируем по убыванию длины
+  const uniqueWords = Array.from(new Set(rawWords)).sort((a, b) => b.length - a.length)
+  const escapedWords = uniqueWords.map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+  const regex = new RegExp(`(${escapedWords.join('|')})`, 'gi')
+
+  const parts: TextPart[] = []
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+
+  while ((match = regex.exec(text)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push({
+        text: text.slice(lastIndex, match.index),
+        isMatch: false,
+      })
+    }
+    parts.push({
+      text: match[0],
+      isMatch: true,
+    })
+    lastIndex = regex.lastIndex
+  }
+
+  if (lastIndex < text.length) {
+    parts.push({
+      text: text.slice(lastIndex),
+      isMatch: false,
+    })
+  }
+
+  return parts
+}
 
 const authorInitials = computed<string>(() => {
   const name = props.review.author_name?.trim() ?? ''
@@ -66,7 +122,10 @@ const formattedResponseDate = computed<string>(() => {
 
         <div>
           <h4 class="text-sm font-semibold text-slate-900 dark:text-white leading-tight">
-            {{ review.author_name || 'Пользователь Яндекс.Карт' }}
+            <template v-for="(part, idx) in getHighlightedParts(review.author_name || 'Пользователь Яндекс.Карт')" :key="idx">
+              <mark v-if="part.isMatch" class="bg-amber-200/90 dark:bg-amber-800/80 text-amber-950 dark:text-amber-100 px-0.5 rounded-xs font-semibold">{{ part.text }}</mark>
+              <template v-else>{{ part.text }}</template>
+            </template>
           </h4>
           <p v-if="review.author_level" class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
             {{ review.author_level }}
@@ -85,7 +144,12 @@ const formattedResponseDate = computed<string>(() => {
 
     <!-- Review Text -->
     <div class="mt-4 text-sm leading-relaxed text-slate-700 dark:text-slate-300 break-words whitespace-pre-line">
-      <p v-if="review.text">{{ review.text }}</p>
+      <p v-if="review.text">
+        <template v-for="(part, idx) in getHighlightedParts(review.text)" :key="idx">
+          <mark v-if="part.isMatch" class="bg-amber-200/90 dark:bg-amber-800/80 text-amber-950 dark:text-amber-100 px-0.5 rounded-xs font-semibold">{{ part.text }}</mark>
+          <template v-else>{{ part.text }}</template>
+        </template>
+      </p>
       <p v-else class="text-slate-400 dark:text-slate-500 italic">Пользователь поставил оценку без текстового комментария.</p>
     </div>
 
@@ -106,7 +170,10 @@ const formattedResponseDate = computed<string>(() => {
         </time>
       </div>
       <p class="text-slate-700 dark:text-slate-200 mt-1 leading-normal whitespace-pre-line">
-        {{ review.business_response_text }}
+        <template v-for="(part, idx) in getHighlightedParts(review.business_response_text)" :key="idx">
+          <mark v-if="part.isMatch" class="bg-amber-200/90 dark:bg-amber-800/80 text-amber-950 dark:text-amber-100 px-0.5 rounded-xs font-semibold">{{ part.text }}</mark>
+          <template v-else>{{ part.text }}</template>
+        </template>
       </p>
     </div>
   </article>

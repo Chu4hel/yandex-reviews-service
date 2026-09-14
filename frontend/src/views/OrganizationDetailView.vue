@@ -116,12 +116,20 @@ const handleSearchInput = (): void => {
     window.clearTimeout(searchDebounceTimer)
   }
   searchDebounceTimer = window.setTimeout(() => {
+    if (searchQuery.value.trim() && selectedSort.value === 'date_desc') {
+      selectedSort.value = 'relevance'
+    } else if (!searchQuery.value.trim() && selectedSort.value === 'relevance') {
+      selectedSort.value = 'date_desc'
+    }
     void loadReviews(1)
   }, 300)
 }
 
 const clearSearch = (): void => {
   searchQuery.value = ''
+  if (selectedSort.value === 'relevance') {
+    selectedSort.value = 'date_desc'
+  }
   void loadReviews(1)
 }
 
@@ -541,6 +549,7 @@ onUnmounted(() => {
                 @change="handleFilterChange"
                 class="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs text-slate-700 dark:text-slate-200 focus:outline-hidden"
               >
+                <option v-if="searchQuery" value="relevance">По релевантности</option>
                 <option value="date_desc">Сначала новые</option>
                 <option value="date_asc">Сначала старые</option>
                 <option value="rating_desc">Сначала с высокой оценкой</option>
@@ -596,7 +605,7 @@ onUnmounted(() => {
         </div>
 
         <div v-else class="space-y-4">
-          <ReviewCard v-for="rev in reviews" :key="rev.id" :review="rev" />
+          <ReviewCard v-for="rev in reviews" :key="rev.id" :review="rev" :search-term="searchQuery" />
 
           <!-- Pagination (50 reviews per page as required) -->
           <div class="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
