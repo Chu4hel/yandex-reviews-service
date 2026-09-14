@@ -8,7 +8,9 @@ import {
   syncOrganizationApi,
   getOrganizationStatusApi,
   exportOrganizationReviewsApi,
+  extractRequestId,
 } from '@/services/api'
+import { useNotificationStore } from '@/stores/notification'
 import type { Organization } from '@/types/organization'
 import type { Review, PaginationMeta } from '@/types/review'
 import type { OrganizationSnapshot } from '@/types/snapshot'
@@ -19,6 +21,7 @@ import ReputationTrendChart from '@/components/ReputationTrendChart.vue'
 
 const route = useRoute()
 const router = useRouter()
+const notificationStore = useNotificationStore()
 const orgId = Number(route.params.id)
 
 const organization = ref<Organization | null>(null)
@@ -106,8 +109,10 @@ const handleExport = async (): Promise<void> => {
     a.click()
     document.body.removeChild(a)
     window.URL.revokeObjectURL(url)
+    notificationStore.success('Экспорт завершен', 'CSV-файл с отзывами успешно сохранен')
   } catch (err: unknown) {
-    alert(err instanceof Error ? err.message : 'Не удалось экспортировать отзывы в CSV')
+    const msg = err instanceof Error ? err.message : 'Не удалось экспортировать отзывы в CSV'
+    notificationStore.error('Ошибка экспорта', msg, extractRequestId(err))
   } finally {
     isExporting.value = false
   }
@@ -118,9 +123,11 @@ const triggerSync = async (syncNow = false): Promise<void> => {
   try {
     const res = await syncOrganizationApi(orgId, syncNow)
     organization.value = res.data
+    notificationStore.success('Синхронизация запущена', 'Сбор отзывов выполняется в фоновом режиме')
     startPolling()
   } catch (err: unknown) {
-    alert(err instanceof Error ? err.message : 'Ошибка при запуске синхронизации')
+    const msg = err instanceof Error ? err.message : 'Ошибка запуска синхронизации'
+    notificationStore.error('Ошибка синхронизации', msg, extractRequestId(err))
   } finally {
     isSyncing.value = false
   }

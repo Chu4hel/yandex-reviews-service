@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { RouterLink, RouterView, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import ToastContainer from '@/components/ToastContainer.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -13,6 +14,9 @@ const handleLogout = async (): Promise<void> => {
 
 <template>
   <div class="min-h-screen bg-slate-50 dark:bg-slate-900 text-slate-800 dark:text-slate-100 flex flex-col font-sans antialiased">
+    <!-- Global Toast Notifications Container -->
+    <ToastContainer />
+
     <!-- Header -->
     <header class="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-50 shadow-xs">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">

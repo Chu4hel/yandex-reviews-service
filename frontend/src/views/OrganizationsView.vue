@@ -2,10 +2,13 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useOrganizationsStore } from '@/stores/organizations'
+import { useNotificationStore } from '@/stores/notification'
+import { extractRequestId } from '@/services/api'
 import RatingStars from '@/components/RatingStars.vue'
 
 const router = useRouter()
 const store = useOrganizationsStore()
+const notificationStore = useNotificationStore()
 
 const inputUrl = ref<string>('')
 const localError = ref<string | null>(null)
@@ -47,10 +50,13 @@ const handleSubmit = async (): Promise<void> => {
   try {
     const org = await store.connectOrganization(trimmed)
     successMessage.value = `Организация "${org.name}" успешно подключена! Запущен сбор отзывов.`
+    notificationStore.success('Организация подключена', `Карточка "${org.name}" успешно добавлена в мониторинг`)
     inputUrl.value = ''
     startPolling()
   } catch (err: unknown) {
-    localError.value = err instanceof Error ? err.message : 'Не удалось подключить организацию'
+    const msg = err instanceof Error ? err.message : 'Не удалось подключить организацию'
+    localError.value = msg
+    notificationStore.error('Ошибка подключения', msg, extractRequestId(err))
   } finally {
     isSubmitting.value = false
   }
@@ -58,10 +64,12 @@ const handleSubmit = async (): Promise<void> => {
 
 const triggerSync = async (id: number): Promise<void> => {
   try {
-    await store.triggerSync(id)
+    await store.syncOrganization(id, true)
+    notificationStore.success('Синхронизация запущена', 'Сбор отзывов выполняется в фоновом режиме')
     startPolling()
   } catch (err: unknown) {
-    alert(err instanceof Error ? err.message : 'Ошибка запуска синхронизации')
+    const msg = err instanceof Error ? err.message : 'Не удалось запустить синхронизацию'
+    notificationStore.error('Ошибка синхронизации', msg, extractRequestId(err))
   }
 }
 

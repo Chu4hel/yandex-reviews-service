@@ -2,8 +2,10 @@
 import { ref, computed, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useAdminStore } from '@/stores/admin'
+import { useNotificationStore } from '@/stores/notification'
 
 const adminStore = useAdminStore()
+const notificationStore = useNotificationStore()
 
 const activeTab = ref<'all' | 'active' | 'cooldown' | 'disabled'>('all')
 const searchQuery = ref<string>('')
@@ -17,6 +19,7 @@ onMounted(async () => {
 
 const handleRefresh = async (): Promise<void> => {
   await Promise.all([adminStore.fetchSettings(), adminStore.fetchProxies()])
+  notificationStore.info('Данные обновлены', 'Статистика и пул прокси актуализированы')
 }
 
 const filteredProxies = computed(() => {
@@ -59,16 +62,29 @@ const handleAddProxies = async (): Promise<void> => {
   if (success) {
     rawProxiesInput.value = ''
     showAddModal.value = false
+    notificationStore.success('Прокси добавлены', 'Адреса успешно валидированы и внесены в пул')
+  } else if (adminStore.error) {
+    notificationStore.error('Ошибка добавления', adminStore.error)
   }
 }
 
 const handleToggle = async (id: number): Promise<void> => {
-  await adminStore.toggleProxy(id)
+  const success = await adminStore.toggleProxy(id)
+  if (success) {
+    notificationStore.info('Статус обновлен', 'Состояние прокси-сервера изменено')
+  } else if (adminStore.error) {
+    notificationStore.error('Ошибка переключения', adminStore.error)
+  }
 }
 
 const handleDelete = async (id: number, host: string, port: number): Promise<void> => {
   if (confirm(`Вы действительно хотите удалить прокси ${host}:${port} из пула?`)) {
-    await adminStore.deleteProxy(id)
+    const success = await adminStore.deleteProxy(id)
+    if (success) {
+      notificationStore.warning('Прокси удален', `${host}:${port} исключен из пула`)
+    } else if (adminStore.error) {
+      notificationStore.error('Ошибка удаления', adminStore.error)
+    }
   }
 }
 
