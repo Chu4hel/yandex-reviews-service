@@ -25,7 +25,6 @@ describe('RatingStars.vue', () => {
 
     const svgElements = wrapper.findAll('svg')
     const filledStars = svgElements.filter((svg) => svg.classes().includes('fill-amber-400'))
-    // Math.round(4.2) is 4
     expect(filledStars).toHaveLength(4)
   })
 

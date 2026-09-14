@@ -42,11 +42,8 @@ describe('ReputationTrendChart.vue', () => {
       },
     })
 
-    // Current rating is 4.8★
     expect(wrapper.text()).toContain('4.8★')
-    // Delta from 4.5 to 4.8 is +0.3
     expect(wrapper.text()).toContain('+0.3')
-    // Initial rating
     expect(wrapper.text()).toContain('4.5')
   })
 
@@ -57,7 +54,6 @@ describe('ReputationTrendChart.vue', () => {
       },
     })
 
-    // 4 + 8 = 12
     expect(wrapper.text()).toContain('+12')
   })
 
@@ -75,7 +71,6 @@ describe('ReputationTrendChart.vue', () => {
     expect(circles).toHaveLength(2)
 
     const paths = wrapper.findAll('path')
-    // Area path and Line path
     expect(paths.length).toBeGreaterThanOrEqual(2)
   })
 })

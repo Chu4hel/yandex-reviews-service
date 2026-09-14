@@ -81,7 +81,7 @@ const loadSnapshots = async (): Promise<void> => {
     const res = await getOrganizationSnapshotsApi(orgId)
     snapshots.value = res.data
   } catch {
-    // Non-blocking
+    // Не блокируем основной рендеринг при сбое загрузки снимков
   }
 }
 

@@ -17,7 +17,7 @@ const copyRequestId = async (id: string): Promise<void> => {
       }
     }, 2000)
   } catch {
-    // Clipboard permission or headless fallback
+    // Безопасный fallback при отсутствии прав к clipboard или в headless-браузере
   }
 }
 

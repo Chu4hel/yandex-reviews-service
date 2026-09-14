@@ -76,7 +76,7 @@ export const useOrganizationsStore = defineStore('organizations', () => {
       const response = await getOrganizationStatusApi(id)
       const statusData = response.data
 
-      // Update in list
+      // Обновление состояния в общем списке организаций
       const org = organizations.value.find((o) => o.id === id)
       if (org) {
         org.sync_status = statusData.sync_status
@@ -88,7 +88,7 @@ export const useOrganizationsStore = defineStore('organizations', () => {
         org.reviews_count = statusData.reviews_count
       }
 
-      // Update currentOrganization if active
+      // Обновление детального представления активной организации
       if (currentOrganization.value?.id === id) {
         currentOrganization.value.sync_status = statusData.sync_status
         currentOrganization.value.sync_progress = statusData.sync_progress

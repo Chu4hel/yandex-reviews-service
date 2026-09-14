@@ -21,7 +21,7 @@ test.describe('GeoReviews E2E User Flows', () => {
   })
 
   test('successful login navigates to /organizations dashboard', async ({ page }) => {
-    // Mock authentication and organizations API
+    // Мокирование API аутентификации и списка организаций
     await page.route('**/api/auth/login', async (route) => {
       await route.fulfill({
         status: 200,
@@ -74,7 +74,7 @@ test.describe('GeoReviews E2E User Flows', () => {
   })
 
   test('admin can access /admin and view proxy management & metrics', async ({ page }) => {
-    // Set authenticated admin session in localStorage
+    // Инициализация авторизованной сессии администратора в localStorage
     await page.addInitScript(() => {
       localStorage.setItem('auth_token', 'mock_admin_token')
       localStorage.setItem(
@@ -153,7 +153,7 @@ test.describe('GeoReviews E2E User Flows', () => {
     await expect(page.locator('text=185.123.45.67')).toBeVisible()
     await expect(page.locator('button:has-text("Добавить прокси")')).toBeVisible()
 
-    // Test opening Add Proxy modal
+    // Проверка открытия модального окна добавления прокси
     await page.click('button:has-text("Добавить прокси")')
     await expect(page.locator('textarea')).toBeVisible()
   })
@@ -257,15 +257,15 @@ test.describe('GeoReviews E2E User Flows', () => {
     await expect(page.locator('text=Додо Пицца')).toBeVisible()
     await expect(page.locator('text=Елена Васильева')).toBeVisible()
 
-    // Verify Export to CSV button is visible
+    // Проверка кнопки экспорта в CSV
     const exportBtn = page.locator('button:has-text("Экспорт в CSV")')
     await expect(exportBtn).toBeVisible()
 
-    // Switch to Snapshots & Analytics Tab
+    // Переключение на вкладку истории изменений и динамики рейтинга
     const snapshotsTab = page.locator('button:has-text("История изменений")')
     await snapshotsTab.click()
 
-    // Verify ReputationTrendChart rendered
+    // Проверка рендеринга SVG-графика тренда
     await expect(page.locator('text=Тренд рейтинга')).toBeVisible()
     await expect(page.locator('text=+100').first()).toBeVisible()
     await expect(page.locator('svg').first()).toBeVisible()

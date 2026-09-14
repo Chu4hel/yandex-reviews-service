@@ -10,14 +10,13 @@ const props = defineProps<Props>()
 
 const hoveredPointIndex = ref<number | null>(null)
 
-// Sort snapshots chronologically
+// Хронологическая сортировка снимков
 const sortedSnapshots = computed(() => {
   return [...props.snapshots].sort(
     (a, b) => new Date(a.snapshot_at).getTime() - new Date(b.snapshot_at).getTime()
   )
 })
 
-// Metrics summary
 const initialRating = computed<number | null>(() => {
   if (sortedSnapshots.value.length === 0) return null
   const first = sortedSnapshots.value[0]
@@ -39,17 +38,16 @@ const totalNewReviews = computed<number>(() => {
   return sortedSnapshots.value.reduce((acc, s) => acc + (s.new_reviews_added || 0), 0)
 })
 
-// SVG Dimensions
 const width = 600
 const height = 180
 const padding = 35
 
-// Chart calculations
+// Расчет координат точек SVG-графика
 const points = computed(() => {
   const list = sortedSnapshots.value
   if (list.length === 0) return []
 
-  // If only 1 snapshot, place in center
+  // Если доступен только один снимок — позиционируем по центру
   if (list.length === 1) {
     const s = list[0]
     const rating = s?.rating_after ?? 5
@@ -63,7 +61,7 @@ const points = computed(() => {
     }]
   }
 
-  // Find min and max rating with small margins
+  // Расчет динамического диапазона шкалы с отступами
   const ratings = list.map((s) => s.rating_after ?? 5)
   const rawMin = Math.min(...ratings)
   const rawMax = Math.max(...ratings)
@@ -86,7 +84,6 @@ const points = computed(() => {
   })
 })
 
-// Path data
 const linePath = computed(() => {
   if (points.value.length < 2) return ''
   return points.value.reduce((acc, p, idx) => {
@@ -94,6 +91,7 @@ const linePath = computed(() => {
   }, '')
 })
 
+// Замкнутый контур области под графиком для градиентной заливки
 const areaPath = computed(() => {
   if (points.value.length < 2) return ''
   const first = points.value[0]

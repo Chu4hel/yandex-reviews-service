@@ -36,7 +36,7 @@ const fillDemo = (): void => {
         </p>
       </div>
 
-      <!-- Error Alert -->
+      <!-- Сообщение об ошибке авторизации -->
       <div
         v-if="authStore.error"
         class="mb-6 p-4 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300 text-sm flex items-center gap-2"
@@ -92,7 +92,7 @@ const fillDemo = (): void => {
         </button>
       </form>
 
-      <!-- Quick Demo Access Box -->
+      <!-- Быстрый доступ для демо-аккаунта -->
       <div class="mt-6 pt-6 border-t border-slate-100 dark:border-slate-700 text-center">
         <p class="text-xs text-slate-500 mb-2">Для проверки задания используйте сид-аккаунт:</p>
         <button

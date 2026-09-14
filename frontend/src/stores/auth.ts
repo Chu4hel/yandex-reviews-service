@@ -47,7 +47,7 @@ export const useAuthStore = defineStore('auth', () => {
         await logoutApi()
       }
     } catch {
-      // Ignore network errors on logout
+      // Игнорируем сетевые сбои при выходе из системы
     } finally {
       token.value = null
       user.value = null

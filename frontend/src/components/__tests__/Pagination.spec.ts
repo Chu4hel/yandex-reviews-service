@@ -57,7 +57,6 @@ describe('Pagination.vue', () => {
       },
     })
 
-    // Find button for page 2
     const buttons = wrapper.findAll('button')
     const page2Button = buttons.find((btn) => btn.text().trim() === '2')
     expect(page2Button).toBeDefined()

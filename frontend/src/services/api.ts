@@ -13,7 +13,7 @@ export const api = axios.create({
   },
 })
 
-// Request interceptor to attach JWT/Sanctum Bearer token
+// Прикрепление токена авторизации Bearer к исходящим запросам
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('auth_token')
   if (token && config.headers) {
@@ -40,7 +40,7 @@ export const extractRequestId = (error: unknown): string | undefined => {
   return lastRequestId ?? undefined
 }
 
-// Response interceptor to handle unauthenticated requests and track X-Request-ID
+// Перехват ответов: отслеживание X-Request-ID и обработка сброса сессии при 401
 api.interceptors.response.use(
   (response) => {
     const reqId = response.headers?.['x-request-id']
@@ -79,7 +79,7 @@ export const checkHealth = async (): Promise<HealthCheckResponse> => {
   return response.data
 }
 
-// Authentication API
+// API аутентификации
 export const loginApi = async (email: string, password: string): Promise<LoginResponse> => {
   const response = await api.post<LoginResponse>('/auth/login', { email, password })
   return response.data
@@ -94,7 +94,7 @@ export const getProfileApi = async (): Promise<{ user: User }> => {
   return response.data
 }
 
-// Organizations API
+// API организаций
 export const getOrganizationsApi = async (): Promise<{ data: Organization[] }> => {
   const response = await api.get<{ data: Organization[] }>('/organizations')
   return response.data
@@ -154,8 +154,7 @@ export const exportOrganizationReviewsApi = async (id: number, rating?: number):
   return response.data as Blob
 }
 
-
-// Admin API
+// Административный API
 export const getAdminSettingsApi = async (): Promise<SystemSettingsData> => {
   const response = await api.get<SystemSettingsData>('/admin/settings')
   return response.data
