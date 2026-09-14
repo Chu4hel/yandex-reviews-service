@@ -57,6 +57,20 @@
    - Выделенный сервис `App\Support\ContentSanitizer`, очищающий опасные HTML-теги, скрипты, SVG-векторы и управляющие символы в текстах отзывов, именах авторов и ответах компании.
    - Проверка безопасности URL-аватаров авторов (блокировка вредоносных протоколов `javascript:`, `data:`).
 
+8. **Сквозная трассировка запросов (Correlation ID / `X-Request-ID`)**:
+   - Автоматическая генерация UUID и привязка сквозного `X-Request-ID` в middleware `AssignRequestId`.
+   - Инжекция идентификатора в Laravel Context и контекстные логи `Log::withContext()`.
+   - Возврат заголовка `X-Request-ID` во всех ответах API (включая ошибки) и перехват во фронтенде через Axios-интерцептор.
+
+9. **Реактивная система всплывающих Toast-уведомлений**:
+   - Модульный стор `useNotificationStore` в Pinia и компонент `ToastContainer.vue` с анимациями появления и автозакрытием.
+   - Вывод `Trace ID` с возможностью мгновенного копирования в буфер обмена при сбоях для оперативной технической поддержки.
+
+10. **Инструменты обслуживания БД и офлайн-отладки (CLI)**:
+    - Автоматическая ротация устаревших снимков репутации (`php artisan reviews:prune-snapshots --days=90 --dry-run`).
+    - Модель `OrganizationSnapshot` поддерживает трейт `Prunable` для встроенной очистки в планировщике задач.
+    - Выгрузка полного изолированного офлайн-слепка карточки со всеми отзывами и снимками в JSON (`php artisan reviews:dump {id} --output=dump.json`).
+
 ---
 
 ## 🚀 Быстрый запуск
@@ -137,7 +151,7 @@ npm run build
    - Команда форматирования: `npm run format` (или `cd backend && composer format`).
 5. **Фронтенд: Политика «Zero any» и юнит/компонентные тесты (Vitest)**:
    - Полный запрет использования `any` в TypeScript коде через ESLint (`@typescript-eslint/no-explicit-any: "error"`).
-   - 21 компонентный и юнит-тест на **Vitest** и `@vue/test-utils` (компоненты `RatingStars.vue`, `Pagination.vue`, `ReviewCard.vue`, `ReputationTrendChart.vue` и стор `useAdminStore`).
+   - 26 компонентных и юнит-тестов на **Vitest** и `@vue/test-utils` (компоненты `RatingStars.vue`, `Pagination.vue`, `ReviewCard.vue`, `ReputationTrendChart.vue`, `ToastContainer.vue` и сторы `useAdminStore`, `useNotificationStore`).
    - Проверка типов через `vue-tsc --noEmit`.
 6. **Сквозное браузерное E2E-тестирование (Playwright)**:
    - Сквозные тесты пользовательских путей (`frontend/e2e/app.spec.ts`):
@@ -148,12 +162,12 @@ npm run build
 7. **Защита API и Rate Limiting**:
    - Настроены именованные лимитеры (`throttle:api`, `throttle:login`, `throttle:sync-organizations`) для защиты от DDoS и предотвращения банов от Яндекс.Карт.
 8. **Контекстное логирование (Structured Logging)**:
-   - Логирование синхронизации с контекстом `organization_id`, `yandex_org_id`, замером времени запросов `duration_ms` и детекцией капчи.
+   - Логирование синхронизации с контекстом `organization_id`, `yandex_org_id`, `request_id`, замером времени запросов `duration_ms` и детекцией капчи.
 9. **CI/CD Pipeline (GitHub Actions)**:
    - Пайплайн `.github/workflows/ci.yml` автоматически запускается на каждый push и pull request.
    - Выполняет параллельные проверки:
-     - Frontend: ESLint (`zero any`), Vitest, Playwright E2E, Vite Build & `vue-tsc`.
-     - Backend: Laravel Pint, Larastan Level 8, PHPUnit (47 Feature/Unit тестов, более 300 проверок).
+     - Frontend: ESLint (`zero any`), Vitest (26 тестов), Playwright E2E, Vite Build & `vue-tsc`.
+     - Backend: Laravel Pint, Larastan Level 8, PHPUnit (72 Feature/Unit теста, 443 проверки).
 
 ### Команды комплексной проверки:
 ```bash
@@ -174,6 +188,12 @@ npm run lint
 
 # Автоматически отформатировать весь код проекта (Pint + ESLint):
 npm run format
+
+# Ротация устаревших снимков репутации (dry-run или боевая очистка):
+cd backend && php artisan reviews:prune-snapshots --days=90 --dry-run
+
+# Выгрузка изолированного офлайн-дампа карточки компании в JSON:
+cd backend && php artisan reviews:dump 1 --output=dump_org_1.json
 ```
 
 ---
