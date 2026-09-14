@@ -432,13 +432,21 @@ onUnmounted(() => {
 
           <!-- Card 3: Reviews Count -->
           <div class="bg-slate-50 dark:bg-slate-700/40 rounded-xl p-5 border border-slate-200/80 dark:border-slate-700 flex flex-col justify-between">
-            <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Количество отзывов</span>
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Отзывов на Яндекс.Картах</span>
+              <span
+                class="text-[11px] px-2 py-0.5 rounded-full bg-slate-200/80 dark:bg-slate-600 font-medium text-slate-700 dark:text-slate-200"
+                title="Количество отзывов, сохраненных в базу сервиса"
+              >
+                В базе: {{ meta.total.toLocaleString('ru-RU') }}
+              </span>
+            </div>
             <div class="mt-2">
               <span class="text-3xl font-extrabold text-slate-900 dark:text-white tabular-nums">
                 {{ organization.reviews_count.toLocaleString('ru-RU') }}
               </span>
               <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                Отзывов с текстом (загружено в базу: {{ meta.total }})
+                Всего отзывов на карточке Яндекс.Карт
               </p>
             </div>
           </div>
@@ -457,7 +465,7 @@ onUnmounted(() => {
               : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
           ]"
         >
-          💬 Все отзывы ({{ meta.total.toLocaleString('ru-RU') }})
+          💬 Отзывы в базе ({{ meta.total.toLocaleString('ru-RU') }})
         </button>
 
         <button
@@ -476,6 +484,28 @@ onUnmounted(() => {
 
       <!-- TAB 1: REVIEWS -->
       <div v-if="activeTab === 'reviews'" class="space-y-4">
+        <!-- Discrepancy Info Banner -->
+        <div
+          v-if="organization.reviews_count > meta.total && organization.sync_status !== 'syncing'"
+          class="p-3.5 rounded-xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200/80 dark:border-blue-800/60 text-xs text-blue-900 dark:text-blue-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+        >
+          <div class="flex items-start sm:items-center gap-2.5">
+            <span class="text-base shrink-0">ℹ️</span>
+            <span>
+              На Яндекс.Картах зафиксировано <strong>{{ organization.reviews_count.toLocaleString('ru-RU') }}</strong> отзывов.
+              В базу сервиса выгружено <strong>{{ meta.total.toLocaleString('ru-RU') }}</strong> (веб-версия карт отдает до ~600 последних отзывов).
+            </span>
+          </div>
+          <button
+            type="button"
+            @click="triggerSync(false)"
+            :disabled="isSyncing || (orgStore.syncCooldowns[orgId] ?? 0) > 0"
+            class="shrink-0 self-start sm:self-auto px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium transition disabled:opacity-50 cursor-pointer flex items-center gap-1"
+          >
+            <span>🔄 Синхронизировать</span>
+          </button>
+        </div>
+
         <!-- Controls: Filters, Search & Sort -->
         <div class="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
           <!-- Rating Filter -->
