@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
-import { useRouter, RouterLink } from 'vue-router'
+import { useRouter } from 'vue-router'
 import axios from 'axios'
 import { useOrganizationsStore } from '@/stores/organizations'
+import { useAuthStore } from '@/stores/auth'
 import { useNotificationStore } from '@/stores/notification'
 import { extractRequestId, extractRetryAfterSeconds } from '@/services/api'
 import type { Organization } from '@/types/organization'
@@ -11,7 +12,24 @@ import ConfirmModal from '@/components/ConfirmModal.vue'
 
 const router = useRouter()
 const store = useOrganizationsStore()
+const authStore = useAuthStore()
 const notificationStore = useNotificationStore()
+
+const handleGoToAdmin = async (): Promise<void> => {
+  if (!authStore.isAdmin) {
+    // Если в локальном сторе еще нет флага админа, проверим профиль
+    await authStore.fetchProfile()
+  }
+
+  if (authStore.isAdmin) {
+    void router.push('/admin')
+  } else {
+    notificationStore.warning(
+      'Доступ ограничен',
+      'Панель управления пулом прокси доступна только администраторам системы.'
+    )
+  }
+}
 
 const inputUrl = ref<string>('')
 const localError = ref<string | null>(null)
@@ -170,16 +188,17 @@ onUnmounted(() => {
         </p>
       </div>
 
-      <RouterLink
-        to="/admin"
-        class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-700/80 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-100 text-xs font-semibold transition border border-slate-200/80 dark:border-slate-600 shadow-xs cursor-pointer self-start sm:self-auto"
+      <button
+        type="button"
+        @click="handleGoToAdmin"
+        class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-750 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 text-xs font-semibold transition border border-slate-200/80 dark:border-slate-700 shadow-xs cursor-pointer self-start sm:self-auto"
       >
         <svg class="w-4 h-4 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
         </svg>
         <span>Управление пулом прокси</span>
         <span class="text-slate-400">&rarr;</span>
-      </RouterLink>
+      </button>
     </div>
 
     <!-- Connection Card -->

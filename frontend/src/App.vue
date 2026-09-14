@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { onMounted } from 'vue'
 import { RouterLink, RouterView, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import ToastContainer from '@/components/ToastContainer.vue'
@@ -6,6 +7,12 @@ import ThemeToggle from '@/components/ThemeToggle.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
+
+onMounted(async () => {
+  if (authStore.isAuthenticated) {
+    await authStore.fetchProfile()
+  }
+})
 
 const handleLogout = async (): Promise<void> => {
   await authStore.logout()
