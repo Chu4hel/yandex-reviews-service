@@ -430,7 +430,7 @@ onUnmounted(() => {
         <!-- Sync Progress Bar -->
         <div v-if="organization.sync_status === 'syncing'" class="mt-4 p-4 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
           <div class="flex items-center justify-between text-xs font-semibold text-amber-900 dark:text-amber-200 mb-1.5">
-            <span>Выполняется фоновый парсинг карточки (до ~600 отзывов)...</span>
+            <span>Выполняется фоновый парсинг отзывов организации...</span>
             <span>{{ organization.sync_progress }}%</span>
           </div>
           <div class="w-full bg-amber-200 dark:bg-amber-900/60 h-2 rounded-full overflow-hidden">
@@ -531,7 +531,7 @@ onUnmounted(() => {
             <span class="text-base shrink-0">ℹ️</span>
             <span>
               На Яндекс.Картах зафиксировано <strong>{{ organization.reviews_count.toLocaleString('ru-RU') }}</strong> отзывов.
-              В базу сервиса выгружено <strong>{{ meta.total.toLocaleString('ru-RU') }}</strong> (веб-версия карт отдает до ~600 последних отзывов).
+              В базу сервиса сейчас загружено <strong>{{ meta.total.toLocaleString('ru-RU') }}</strong>.
             </span>
           </div>
           <button
