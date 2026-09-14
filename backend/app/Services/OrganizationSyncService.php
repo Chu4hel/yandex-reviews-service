@@ -68,27 +68,11 @@ class OrganizationSyncService
             ]);
 
             // Сохранение первой партии отзывов
-            $newCount = 0;
             foreach ($parsedOrg->initialReviews as $reviewDto) {
                 $this->upsertReview($organization->id, $reviewDto);
-                $newCount++;
             }
 
-            // Создание начального снимка репутации
-            OrganizationSnapshot::create([
-                'organization_id' => $organization->id,
-                'rating_before' => null,
-                'rating_after' => $organization->rating,
-                'ratings_count_before' => 0,
-                'ratings_count_after' => $organization->ratings_count,
-                'reviews_count_before' => 0,
-                'reviews_count_after' => $organization->reviews_count,
-                'new_reviews_added' => $newCount,
-                'updated_reviews_count' => 0,
-                'snapshot_at' => now(),
-            ]);
-
-            // Запуск фоновой задачи для выгрузки всех отзывов (до ~600)
+            // Запуск фоновой задачи для полной выгрузки всех отзывов (до ~600) и фиксации снимка
             SyncOrganizationReviewsJob::dispatch($organization->id);
 
             return $organization;
@@ -128,9 +112,11 @@ class OrganizationSyncService
             'last_sync_error' => null,
         ]);
 
-        $ratingBefore = $organization->rating;
-        $ratingsCountBefore = $organization->ratings_count;
-        $reviewsCountBefore = $organization->reviews_count;
+        $isFirstSync = $organization->last_synced_at === null;
+
+        $ratingBefore = $isFirstSync ? null : $organization->rating;
+        $ratingsCountBefore = $isFirstSync ? 0 : $organization->ratings_count;
+        $reviewsCountBefore = $isFirstSync ? 0 : $organization->reviews_count;
 
         $newAddedCount = 0;
         $updatedCount = 0;
@@ -209,7 +195,13 @@ class OrganizationSyncService
                 usleep(300000);
             }
 
-            // 3. Фиксация изменений в снимке репутации
+            // Если это первичная синхронизация карточки, все загруженные отзывы являются новыми
+            $effectiveNewAddedCount = $isFirstSync
+                ? Review::where('organization_id', $organization->id)->count()
+                : $newAddedCount;
+            $effectiveUpdatedCount = $isFirstSync ? 0 : $updatedCount;
+
+            // 3. Фиксация изменений в снимке репутации (ровно один снимок за цикл синхронизации)
             $snapshot = OrganizationSnapshot::create([
                 'organization_id' => $organization->id,
                 'rating_before' => $ratingBefore,
@@ -218,8 +210,8 @@ class OrganizationSyncService
                 'ratings_count_after' => $organization->ratings_count,
                 'reviews_count_before' => $reviewsCountBefore,
                 'reviews_count_after' => $organization->reviews_count,
-                'new_reviews_added' => $newAddedCount,
-                'updated_reviews_count' => $updatedCount,
+                'new_reviews_added' => $effectiveNewAddedCount,
+                'updated_reviews_count' => $effectiveUpdatedCount,
                 'snapshot_at' => now(),
             ]);
 
@@ -228,7 +220,7 @@ class OrganizationSyncService
             $organization->update([
                 'sync_status' => 'completed',
                 'sync_progress' => 100,
-                'sync_message' => "Синхронизация завершена: +{$newAddedCount} новых, {$updatedCount} обновлено (всего в базе {$totalSaved})",
+                'sync_message' => "Синхронизация завершена: +{$effectiveNewAddedCount} новых, {$effectiveUpdatedCount} обновлено (всего в базе {$totalSaved})",
                 'last_synced_at' => now(),
                 'last_sync_error' => null,
             ]);
@@ -237,8 +229,8 @@ class OrganizationSyncService
 
             Log::info('OrganizationSyncService: синхронизация успешно завершена', [
                 'total_duration_sec' => $totalDuration,
-                'new_reviews_added' => $newAddedCount,
-                'updated_reviews_count' => $updatedCount,
+                'new_reviews_added' => $effectiveNewAddedCount,
+                'updated_reviews_count' => $effectiveUpdatedCount,
                 'total_reviews_saved' => $totalSaved,
                 'snapshot_id' => $snapshot->id,
                 'rating_delta' => $organization->rating !== null && $ratingBefore !== null ? round($organization->rating - $ratingBefore, 2) : 0,
@@ -247,8 +239,8 @@ class OrganizationSyncService
             return new SyncResultDto(
                 organizationId: $organization->id,
                 totalReviewsSaved: $totalSaved,
-                newReviewsAdded: $newAddedCount,
-                updatedReviewsCount: $updatedCount,
+                newReviewsAdded: $effectiveNewAddedCount,
+                updatedReviewsCount: $effectiveUpdatedCount,
                 ratingBefore: $ratingBefore,
                 ratingAfter: $organization->rating,
                 reviewsCountBefore: $reviewsCountBefore,

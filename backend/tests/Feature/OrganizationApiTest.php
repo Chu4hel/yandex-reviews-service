@@ -7,10 +7,13 @@ namespace Tests\Feature;
 use App\Domain\Contracts\YandexParserInterface;
 use App\Domain\DTO\ParsedOrganizationDto;
 use App\Domain\DTO\ParsedReviewDto;
+use App\Domain\DTO\ParsedReviewsBatchDto;
 use App\Jobs\SyncOrganizationReviewsJob;
 use App\Models\Organization;
+use App\Models\OrganizationSnapshot;
 use App\Models\Review;
 use App\Models\User;
+use App\Services\OrganizationSyncService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Queue;
 use Mockery\MockInterface;
@@ -278,5 +281,80 @@ class OrganizationApiTest extends TestCase
             ->assertJsonPath('data.0.photos.0.id', 'photo_1')
             ->assertJsonPath('data.0.photos.0.preview_url', 'https://avatars.mds.yandex.net/get-altay/123/L')
             ->assertJsonPath('data.0.photos.0.full_url', 'https://avatars.mds.yandex.net/get-altay/123/orig');
+    }
+
+    public function test_connect_and_sync_creates_single_snapshot_after_full_sync(): void
+    {
+        $this->mock(YandexParserInterface::class, function (MockInterface $mock) {
+            $mock->shouldReceive('normalizeUrl')
+                ->andReturn('https://yandex.ru/maps/org/777888999/reviews/');
+
+            $mock->shouldReceive('extractOrgId')
+                ->andReturn('777888999');
+
+            $mock->shouldReceive('parseOrganization')
+                ->andReturn(new ParsedOrganizationDto(
+                    yandexOrgId: '777888999',
+                    name: 'Ресторан Одиночный Снимок',
+                    url: 'https://yandex.ru/maps/org/777888999/reviews/',
+                    address: 'г. Москва, ул. Снимков 1',
+                    rating: 4.8,
+                    ratingsCount: 120,
+                    reviewsCount: 80,
+                    initialReviews: [
+                        new ParsedReviewDto(
+                            yandexReviewId: 'rev_init_1',
+                            authorName: 'Олег',
+                            authorAvatarUrl: null,
+                            authorLevel: 'Знаток',
+                            rating: 5,
+                            text: 'Первая пачка',
+                            publishedAt: '2026-09-01T12:00:00Z',
+                        ),
+                    ],
+                    totalPages: 1,
+                ));
+
+            $mock->shouldReceive('parseReviewsPage')
+                ->andReturn(new ParsedReviewsBatchDto(
+                    reviews: [
+                        new ParsedReviewDto(
+                            yandexReviewId: 'rev_page_2',
+                            authorName: 'Мария',
+                            authorAvatarUrl: null,
+                            authorLevel: 'Новичок',
+                            rating: 4,
+                            text: 'Вторая пачка',
+                            publishedAt: '2026-09-02T12:00:00Z',
+                        ),
+                    ],
+                    page: 1,
+                    totalPages: 1,
+                    totalReviewsCount: 80,
+                    hasNextPage: false,
+                ));
+        });
+
+        // 1. Подключение организации (раньше тут создавался 1-й снимок)
+        $syncService = app(OrganizationSyncService::class);
+        Queue::fake();
+
+        $org = $syncService->connectOrganization('https://yandex.ru/maps/org/777888999/');
+
+        // На этапе connectOrganization снимок еще НЕ должен быть создан
+        $this->assertDatabaseCount('organization_snapshots', 0);
+
+        // 2. Выполняем фоновую синхронизацию
+        $syncService->syncOrganizationReviews($org);
+
+        // Должен быть создан ровно 1 снимок
+        $this->assertDatabaseCount('organization_snapshots', 1);
+
+        $snapshot = OrganizationSnapshot::first();
+        $this->assertNull($snapshot->rating_before);
+        $this->assertEquals(4.8, $snapshot->rating_after);
+        $this->assertEquals(0, $snapshot->reviews_count_before);
+        $this->assertEquals(80, $snapshot->reviews_count_after);
+        $this->assertEquals(2, $snapshot->new_reviews_added);
     }
 }
