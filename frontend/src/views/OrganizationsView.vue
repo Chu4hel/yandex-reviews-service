@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
+import axios from 'axios'
 import { useOrganizationsStore } from '@/stores/organizations'
 import { useNotificationStore } from '@/stores/notification'
-import { extractRequestId } from '@/services/api'
+import { extractRequestId, extractRetryAfterSeconds } from '@/services/api'
+import type { Organization } from '@/types/organization'
 import RatingStars from '@/components/RatingStars.vue'
+import ConfirmModal from '@/components/ConfirmModal.vue'
 
 const router = useRouter()
 const store = useOrganizationsStore()
@@ -14,6 +17,8 @@ const inputUrl = ref<string>('')
 const localError = ref<string | null>(null)
 const successMessage = ref<string | null>(null)
 const isSubmitting = ref<boolean>(false)
+const orgToDelete = ref<Organization | null>(null)
+const isDeleting = ref<boolean>(false)
 let pollingTimer: number | null = null
 
 const demoExamples = [
@@ -68,8 +73,39 @@ const triggerSync = async (id: number): Promise<void> => {
     notificationStore.success('Синхронизация запущена', 'Сбор отзывов выполняется в фоновом режиме')
     startPolling()
   } catch (err: unknown) {
+    if (axios.isAxiosError(err) && err.response?.status === 429) {
+      const waitSec = extractRetryAfterSeconds(err, 60)
+      store.setSyncCooldown(id, waitSec)
+      notificationStore.warning(
+        'Лимит частоты запросов',
+        `Слишком много запросов к сервису. Повторная попытка станет доступна через ${waitSec} сек.`,
+        extractRequestId(err)
+      )
+      return
+    }
     const msg = err instanceof Error ? err.message : 'Не удалось запустить синхронизацию'
     notificationStore.error('Ошибка синхронизации', msg, extractRequestId(err))
+  }
+}
+
+const confirmDelete = (org: Organization): void => {
+  orgToDelete.value = org
+}
+
+const handleDeleteConfirm = async (): Promise<void> => {
+  if (!orgToDelete.value) return
+  const id = orgToDelete.value.id
+  const name = orgToDelete.value.name
+  isDeleting.value = true
+  try {
+    await store.deleteOrganization(id)
+    notificationStore.success('Организация удалена', `Карточка «${name}» успешно перемещена в архив`)
+    orgToDelete.value = null
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Не удалось удалить организацию'
+    notificationStore.error('Ошибка удаления', msg, extractRequestId(err))
+  } finally {
+    isDeleting.value = false
   }
 }
 
@@ -314,15 +350,41 @@ onUnmounted(() => {
             <button
               type="button"
               @click="triggerSync(org.id)"
-              :disabled="org.sync_status === 'syncing'"
-              title="Запустить повторную синхронизацию"
-              class="p-2 rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+              :disabled="org.sync_status === 'syncing' || (store.syncCooldowns[org.id] ?? 0) > 0"
+              :title="(store.syncCooldowns[org.id] ?? 0) > 0 ? `Подождите ${store.syncCooldowns[org.id]} с...` : 'Запустить повторную синхронизацию'"
+              class="p-2 rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center gap-1 shrink-0"
             >
-              🔄
+              <span>🔄</span>
+              <span v-if="(store.syncCooldowns[org.id] ?? 0) > 0" class="text-[11px] font-mono font-bold text-amber-600 dark:text-amber-400">
+                {{ store.syncCooldowns[org.id] }}s
+              </span>
+            </button>
+            <button
+              type="button"
+              @click="confirmDelete(org)"
+              title="Переместить организацию в архив"
+              class="p-2 rounded-lg border border-slate-200 dark:border-slate-700 hover:border-rose-300 dark:hover:border-rose-800 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 text-xs transition cursor-pointer shrink-0"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
             </button>
           </div>
         </div>
       </div>
     </div>
+
+    <!-- Модальное окно подтверждения удаления карточки -->
+    <ConfirmModal
+      :is-open="orgToDelete !== null"
+      :title="`Удалить карточку «${orgToDelete?.name || ''}»?`"
+      message="Организация будет перемещена в архив. Фоновый сбор отзывов прекратится, карточка исчезнет из активного списка."
+      confirm-text="Удалить"
+      cancel-text="Отмена"
+      :danger="true"
+      :is-loading="isDeleting"
+      @confirm="handleDeleteConfirm"
+      @cancel="orgToDelete = null"
+    />
   </div>
 </template>

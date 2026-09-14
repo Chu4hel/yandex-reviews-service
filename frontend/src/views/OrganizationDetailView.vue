@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import axios from 'axios'
 import {
   getOrganizationApi,
   getOrganizationReviewsApi,
@@ -8,9 +9,12 @@ import {
   syncOrganizationApi,
   getOrganizationStatusApi,
   exportOrganizationReviewsApi,
+  deleteOrganizationApi,
   extractRequestId,
+  extractRetryAfterSeconds,
 } from '@/services/api'
 import { useNotificationStore } from '@/stores/notification'
+import { useOrganizationsStore } from '@/stores/organizations'
 import type { Organization } from '@/types/organization'
 import type { Review, PaginationMeta } from '@/types/review'
 import type { OrganizationSnapshot } from '@/types/snapshot'
@@ -19,13 +23,17 @@ import ReviewCard from '@/components/ReviewCard.vue'
 import ReviewSkeleton from '@/components/ReviewSkeleton.vue'
 import Pagination from '@/components/Pagination.vue'
 import ReputationTrendChart from '@/components/ReputationTrendChart.vue'
+import ConfirmModal from '@/components/ConfirmModal.vue'
 
 const route = useRoute()
 const router = useRouter()
 const notificationStore = useNotificationStore()
+const orgStore = useOrganizationsStore()
 const orgId = Number(route.params.id)
 
 const organization = ref<Organization | null>(null)
+const isDeleteModalOpen = ref<boolean>(false)
+const isDeleting = ref<boolean>(false)
 const reviews = ref<Review[]>([])
 const meta = ref<PaginationMeta>({
   current_page: 1,
@@ -118,11 +126,13 @@ const clearSearch = (): void => {
 }
 
 const isExporting = ref<boolean>(false)
+const exportFormat = ref<'csv' | 'json'>('csv')
 
-const handleExport = async (): Promise<void> => {
+const handleExport = async (format: 'csv' | 'json' = 'csv'): Promise<void> => {
+  exportFormat.value = format
   isExporting.value = true
   try {
-    const blob = await exportOrganizationReviewsApi(orgId, selectedRating.value, searchQuery.value)
+    const blob = await exportOrganizationReviewsApi(orgId, selectedRating.value, searchQuery.value, format)
     const url = window.URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -130,14 +140,18 @@ const handleExport = async (): Promise<void> => {
     if (selectedRating.value > 0) suffixParts.push(`${selectedRating.value}stars`)
     if (searchQuery.value) suffixParts.push('filtered')
     const suffix = suffixParts.length > 0 ? `_${suffixParts.join('_')}` : ''
-    a.download = `reviews_${organization.value?.name || 'organization'}${suffix}.csv`
+    const ext = format === 'json' ? 'json' : 'csv'
+    a.download = `reviews_${organization.value?.name || 'organization'}${suffix}.${ext}`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
     window.URL.revokeObjectURL(url)
-    notificationStore.success('Экспорт завершен', 'CSV-файл с отзывами успешно сохранен')
+    notificationStore.success(
+      'Экспорт завершен',
+      `${format.toUpperCase()}-файл с отзывами успешно сохранен`
+    )
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : 'Не удалось экспортировать отзывы в CSV'
+    const msg = err instanceof Error ? err.message : `Не удалось экспортировать отзывы в ${format.toUpperCase()}`
     notificationStore.error('Ошибка экспорта', msg, extractRequestId(err))
   } finally {
     isExporting.value = false
@@ -152,10 +166,36 @@ const triggerSync = async (syncNow = false): Promise<void> => {
     notificationStore.success('Синхронизация запущена', 'Сбор отзывов выполняется в фоновом режиме')
     startPolling()
   } catch (err: unknown) {
+    if (axios.isAxiosError(err) && err.response?.status === 429) {
+      const waitSec = extractRetryAfterSeconds(err, 60)
+      orgStore.setSyncCooldown(orgId, waitSec)
+      notificationStore.warning(
+        'Лимит частоты запросов',
+        `Слишком много запросов к сервису. Повторная попытка станет доступна через ${waitSec} сек.`,
+        extractRequestId(err)
+      )
+      return
+    }
     const msg = err instanceof Error ? err.message : 'Ошибка запуска синхронизации'
     notificationStore.error('Ошибка синхронизации', msg, extractRequestId(err))
   } finally {
     isSyncing.value = false
+  }
+}
+
+const handleDeleteConfirm = async (): Promise<void> => {
+  if (!organization.value) return
+  isDeleting.value = true
+  try {
+    await deleteOrganizationApi(orgId)
+    notificationStore.success('Организация удалена', `Карточка «${organization.value.name}» успешно перемещена в архив`)
+    void router.push('/organizations')
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Не удалось удалить организацию'
+    notificationStore.error('Ошибка удаления', msg, extractRequestId(err))
+  } finally {
+    isDeleting.value = false
+    isDeleteModalOpen.value = false
   }
 }
 
@@ -235,14 +275,28 @@ onUnmounted(() => {
           rel="noopener noreferrer"
           class="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 text-xs font-medium text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition flex items-center gap-1"
         >
-          <span>Открыть на Яндекс.Картах</span>
+          <span>Яндекс.Карты</span>
           <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
           </svg>
         </a>
+
+        <button
+          type="button"
+          @click="isDeleteModalOpen = true"
+          title="Переместить организацию в архив"
+          class="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 hover:border-rose-300 dark:hover:border-rose-800 hover:bg-rose-50 dark:hover:bg-rose-950/40 text-xs font-medium text-slate-600 hover:text-rose-600 dark:text-slate-300 dark:hover:text-rose-400 transition flex items-center gap-1 cursor-pointer"
+        >
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+          <span class="hidden sm:inline">Удалить</span>
+        </button>
+
         <button
           @click="triggerSync(false)"
-          :disabled="isSyncing || organization?.sync_status === 'syncing'"
+          :disabled="isSyncing || organization?.sync_status === 'syncing' || (orgStore.syncCooldowns[orgId] ?? 0) > 0"
+          :title="(orgStore.syncCooldowns[orgId] ?? 0) > 0 ? `Подождите ${orgStore.syncCooldowns[orgId]} с...` : 'Обновить отзывы'"
           class="px-4 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-semibold shadow-xs transition flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
         >
           <svg
@@ -254,7 +308,12 @@ onUnmounted(() => {
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
           </svg>
-          <span>{{ organization?.sync_status === 'syncing' ? 'Синхронизация...' : 'Обновить отзывы' }}</span>
+          <span v-if="(orgStore.syncCooldowns[orgId] ?? 0) > 0">
+            Подождите {{ orgStore.syncCooldowns[orgId] }} с
+          </span>
+          <span v-else>
+            {{ organization?.sync_status === 'syncing' ? 'Синхронизация...' : 'Обновить отзывы' }}
+          </span>
         </button>
       </div>
     </div>
@@ -489,18 +548,31 @@ onUnmounted(() => {
               </select>
             </div>
 
-            <button
-              type="button"
-              @click="handleExport"
-              :disabled="isExporting || meta.total === 0"
-              class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 text-xs font-medium text-slate-700 dark:text-slate-200 transition shadow-xs disabled:opacity-50 cursor-pointer"
-              title="Экспорт отзывов в файл Excel / CSV"
-            >
-              <svg class="w-3.5 h-3.5 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-              <span>{{ isExporting ? 'Экспорт...' : 'Экспорт в CSV' }}</span>
-            </button>
+            <!-- Мультиформатный экспорт (CSV / JSON) -->
+            <div class="inline-flex items-center rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 p-0.5 shadow-xs">
+              <button
+                type="button"
+                @click="handleExport('csv')"
+                :disabled="isExporting || meta.total === 0"
+                class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-600 transition disabled:opacity-50 cursor-pointer"
+                title="Экспорт отзывов в файл Excel / CSV"
+              >
+                <svg class="w-3.5 h-3.5 text-slate-500 dark:text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span>{{ isExporting && exportFormat === 'csv' ? 'Экспорт...' : 'CSV' }}</span>
+              </button>
+              <span class="text-slate-300 dark:text-slate-600">|</span>
+              <button
+                type="button"
+                @click="handleExport('json')"
+                :disabled="isExporting || meta.total === 0"
+                class="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-600 transition disabled:opacity-50 cursor-pointer"
+                title="Экспорт отзывов в формате JSON"
+              >
+                <span>{{ isExporting && exportFormat === 'json' ? 'Экспорт...' : 'JSON' }}</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -598,5 +670,18 @@ onUnmounted(() => {
         </div>
       </div>
     </template>
+
+    <!-- Модальное окно подтверждения удаления карточки -->
+    <ConfirmModal
+      :is-open="isDeleteModalOpen"
+      :title="`Удалить карточку «${organization?.name || ''}»?`"
+      message="Организация будет перемещена в архив. Сбор отзывов прекратится, карточка исчезнет из списка активных."
+      confirm-text="Удалить"
+      cancel-text="Отмена"
+      :danger="true"
+      :is-loading="isDeleting"
+      @confirm="handleDeleteConfirm"
+      @cancel="isDeleteModalOpen = false"
+    />
   </div>
 </template>

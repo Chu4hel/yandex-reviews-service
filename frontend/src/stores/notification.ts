@@ -46,8 +46,8 @@ export const useNotificationStore = defineStore('notification', () => {
     return show({ type: 'error', title, message, requestId, duration })
   }
 
-  const warning = (title: string, message?: string, duration?: number): string => {
-    return show({ type: 'warning', title, message, duration })
+  const warning = (title: string, message?: string, requestId?: string, duration?: number): string => {
+    return show({ type: 'warning', title, message, requestId, duration })
   }
 
   const info = (title: string, message?: string, duration?: number): string => {

@@ -7,6 +7,7 @@ import {
   connectOrganizationApi,
   getOrganizationStatusApi,
   syncOrganizationApi,
+  deleteOrganizationApi,
 } from '@/services/api'
 
 export const useOrganizationsStore = defineStore('organizations', () => {
@@ -125,15 +126,74 @@ export const useOrganizationsStore = defineStore('organizations', () => {
     }
   }
 
+  const deleteOrganization = async (id: number): Promise<void> => {
+    isLoading.value = true
+    error.value = null
+    try {
+      await deleteOrganizationApi(id)
+      organizations.value = organizations.value.filter((o) => o.id !== id)
+      if (currentOrganization.value?.id === id) {
+        currentOrganization.value = null
+      }
+    } catch (err: unknown) {
+      if (typeof err === 'object' && err !== null && 'response' in err) {
+        const axiosErr = err as { response?: { data?: { message?: string } } }
+        const msg = axiosErr.response?.data?.message ?? 'Ошибка удаления организации'
+        error.value = msg
+        throw new Error(msg, { cause: err })
+      }
+      const msg = err instanceof Error ? err.message : 'Не удалось удалить организацию'
+      error.value = msg
+      throw new Error(msg, { cause: err })
+    } finally {
+      isLoading.value = false
+    }
+  }
+
+  // Управление таймером обратного отсчёта при ограничении частоты запросов (429 Too Many Requests)
+  const syncCooldowns = ref<Record<number, number>>({})
+  let cooldownInterval: number | null = null
+
+  const startCooldownTimer = (): void => {
+    if (cooldownInterval !== null) return
+    cooldownInterval = window.setInterval(() => {
+      let hasActive = false
+      for (const idStr of Object.keys(syncCooldowns.value)) {
+        const id = Number(idStr)
+        if (syncCooldowns.value[id] > 0) {
+          syncCooldowns.value[id]--
+          hasActive = true
+        }
+      }
+      if (!hasActive && cooldownInterval !== null) {
+        clearInterval(cooldownInterval)
+        cooldownInterval = null
+      }
+    }, 1000)
+  }
+
+  const setSyncCooldown = (id: number, seconds: number): void => {
+    syncCooldowns.value[id] = seconds
+    startCooldownTimer()
+  }
+
+  const getSyncCooldown = (id: number): number => {
+    return syncCooldowns.value[id] ?? 0
+  }
+
   return {
     organizations,
     currentOrganization,
     isLoading,
     error,
+    syncCooldowns,
     fetchOrganizations,
     fetchOrganization,
     connectOrganization,
     updateStatus,
     triggerSync,
+    deleteOrganization,
+    setSyncCooldown,
+    getSyncCooldown,
   }
 })

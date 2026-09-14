@@ -146,12 +146,31 @@ export const getOrganizationSnapshotsApi = async (id: number): Promise<{ data: O
   return response.data
 }
 
+export const deleteOrganizationApi = async (id: number): Promise<{ message: string }> => {
+  const response = await api.delete<{ message: string }>(`/organizations/${id}`)
+  return response.data
+}
+
+export const extractRetryAfterSeconds = (error: unknown, defaultSeconds = 60): number => {
+  if (axios.isAxiosError(error)) {
+    const retryHeader = error.response?.headers?.['retry-after']
+    if (retryHeader) {
+      const parsed = parseInt(String(retryHeader), 10)
+      if (!Number.isNaN(parsed) && parsed > 0) {
+        return parsed
+      }
+    }
+  }
+  return defaultSeconds
+}
+
 export const exportOrganizationReviewsApi = async (
   id: number,
   rating?: number,
-  search?: string
+  search?: string,
+  format: 'csv' | 'json' = 'csv'
 ): Promise<Blob> => {
-  const params: Record<string, string | number> = {}
+  const params: Record<string, string | number> = { format }
   if (rating !== undefined && rating > 0) {
     params.rating = rating
   }

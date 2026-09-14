@@ -152,4 +152,42 @@ class OrganizationExportTest extends TestCase
         $this->assertStringContainsString('rev_croissant;Виктор', $content);
         $this->assertStringNotContainsString('rev_baguette;Мария', $content);
     }
+
+    public function test_authenticated_user_can_export_reviews_in_json_format(): void
+    {
+        $user = User::factory()->create();
+        $org = Organization::create([
+            'yandex_org_id' => '10005',
+            'name' => 'Кофейня JSON',
+            'url' => 'https://yandex.ru/maps/org/10005/reviews/',
+        ]);
+
+        Review::create([
+            'organization_id' => $org->id,
+            'yandex_review_id' => 'rev_json_1',
+            'author_name' => 'Алексей',
+            'rating' => 5,
+            'text' => 'Ароматный эспрессо!',
+            'published_at' => now(),
+            'business_response_text' => 'Рады стараться!',
+            'business_response_at' => now(),
+        ]);
+
+        $response = $this->actingAs($user, 'sanctum')->get("/api/organizations/{$org->id}/export?format=json");
+
+        $response->assertStatus(200);
+        $response->assertHeader('Content-Type', 'application/json; charset=UTF-8');
+        $this->assertStringContainsString('.json', (string) $response->headers->get('Content-Disposition'));
+
+        $content = $response->streamedContent();
+        $decoded = json_decode($content, true);
+
+        $this->assertIsArray($decoded);
+        $this->assertCount(1, $decoded);
+        $this->assertSame('rev_json_1', $decoded[0]['yandex_review_id']);
+        $this->assertSame('Алексей', $decoded[0]['author_name']);
+        $this->assertSame(5, $decoded[0]['rating']);
+        $this->assertSame('Ароматный эспрессо!', $decoded[0]['text']);
+        $this->assertSame('Рады стараться!', $decoded[0]['business_response']['text']);
+    }
 }
