@@ -135,4 +135,4 @@ php artisan test
 
 > **Статус проверок:**
 > - PHPStan: Level 8 — **0 ошибок** на всех файлах.
-> - PHPUnit: **85 тестов пройдены** (514 assertions).
+> - PHPUnit: **86 тестов пройдены** (520 assertions).
