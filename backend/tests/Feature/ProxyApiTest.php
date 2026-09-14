@@ -134,4 +134,79 @@ class ProxyApiTest extends TestCase
             'port' => 8888,
         ]);
     }
+
+    public function test_authenticated_regular_user_can_add_proxies_via_public_endpoint(): void
+    {
+        $user = User::factory()->create(['is_admin' => false]);
+
+        $response = $this->actingAs($user, 'sanctum')->postJson('/api/proxies', [
+            'proxies' => [
+                'http://contributor:pass123@192.168.20.1:8080',
+            ],
+        ]);
+
+        $response->assertStatus(201);
+        $this->assertDatabaseHas('proxy_servers', [
+            'host' => '192.168.20.1',
+            'port' => 8080,
+            'username' => 'contributor',
+        ]);
+    }
+
+    public function test_regular_user_cannot_view_admin_proxies(): void
+    {
+        $user = User::factory()->create(['is_admin' => false]);
+
+        $response1 = $this->actingAs($user, 'sanctum')->getJson('/api/proxies');
+        $response1->assertStatus(403);
+
+        $response2 = $this->actingAs($user, 'sanctum')->getJson('/api/admin/proxies');
+        $response2->assertStatus(403);
+    }
+
+    public function test_proxy_credentials_are_masked_without_x_admin_key(): void
+    {
+        config(['services.admin.api_key' => 'super-secret-key']);
+        $admin = User::factory()->create(['is_admin' => true]);
+
+        ProxyServer::create([
+            'protocol' => 'http',
+            'host' => '10.50.0.1',
+            'port' => 8080,
+            'username' => 'confidential_user',
+            'password' => 'secret_password_never_expose',
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($admin, 'sanctum')->getJson('/api/admin/proxies');
+
+        $response->assertStatus(200);
+        $response->assertJsonPath('data.0.username', 'c***r');
+        $response->assertJsonPath('data.0.masked_endpoint', 'http://c***r:***@10.50.0.1:8080');
+        $response->assertJsonMissing(['password' => 'secret_password_never_expose']);
+    }
+
+    public function test_proxy_username_is_unmasked_with_valid_x_admin_key(): void
+    {
+        config(['services.admin.api_key' => 'super-secret-key']);
+        $admin = User::factory()->create(['is_admin' => true]);
+
+        ProxyServer::create([
+            'protocol' => 'http',
+            'host' => '10.50.0.2',
+            'port' => 8080,
+            'username' => 'revealed_admin_user',
+            'password' => 'secret_password_never_expose',
+            'is_active' => true,
+        ]);
+
+        $response = $this->actingAs($admin, 'sanctum')
+            ->withHeader('X-Admin-Key', 'super-secret-key')
+            ->getJson('/api/admin/proxies');
+
+        $response->assertStatus(200);
+        $response->assertJsonPath('data.0.username', 'revealed_admin_user');
+        $response->assertJsonPath('data.0.masked_endpoint', 'http://revealed_admin_user:***@10.50.0.2:8080');
+        $response->assertJsonMissing(['password' => 'secret_password_never_expose']);
+    }
 }

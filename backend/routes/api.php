@@ -34,9 +34,14 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->prefix('organizations')->gr
     Route::delete('/{organization}', [OrganizationController::class, 'destroy']);
 });
 
-// Административный контур (сессия администратора либо заголовок X-Admin-Key)
+// Добавление прокси в пул ротации: доступно как администраторам, так и обычным авторизованным пользователям
+Route::middleware(['auth:sanctum', 'throttle:api'])->prefix('proxies')->group(function () {
+    Route::post('/', [ProxyServerController::class, 'store']);
+});
+
+// Административный контур (сессия администратора is_admin: true либо заголовок X-Admin-Key)
 Route::middleware(['admin.access', 'throttle:api'])->prefix('admin')->group(function () {
-    // Управление пулом прокси
+    // Управление пулом прокси (просмотр, переключение активности, удаление)
     Route::get('/proxies', [ProxyServerController::class, 'index']);
     Route::post('/proxies', [ProxyServerController::class, 'store']);
     Route::post('/proxies/{proxy}/toggle', [ProxyServerController::class, 'toggle']);
@@ -46,10 +51,9 @@ Route::middleware(['admin.access', 'throttle:api'])->prefix('admin')->group(func
     Route::get('/settings', [SystemSettingsController::class, 'index']);
 });
 
-// Алиас для обратной совместимости внешних интеграций
+// Алиас управления пулом для внешних интеграций под admin.access
 Route::middleware(['admin.access', 'throttle:api'])->prefix('proxies')->group(function () {
     Route::get('/', [ProxyServerController::class, 'index']);
-    Route::post('/', [ProxyServerController::class, 'store']);
     Route::post('/{proxy}/toggle', [ProxyServerController::class, 'toggle']);
     Route::delete('/{proxy}', [ProxyServerController::class, 'destroy']);
 });

@@ -115,7 +115,7 @@ class ContentSanitizer
             }
 
             $sanitized[] = [
-                'id' => $id ?? md5(($previewUrl ?? '') . ($fullUrl ?? '')),
+                'id' => $id ?? md5(($previewUrl ?? '').($fullUrl ?? '')),
                 'preview_url' => $previewUrl ?? $fullUrl ?? '',
                 'full_url' => $fullUrl ?? $previewUrl ?? '',
             ];
