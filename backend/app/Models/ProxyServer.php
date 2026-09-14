@@ -15,6 +15,7 @@ use Illuminate\Database\Eloquent\Model;
  * @property string $protocol
  * @property string $host
  * @property int $port
+ * @property string|null $proxy_key
  * @property string|null $username
  * @property string|null $password
  * @property bool $is_active
@@ -34,6 +35,7 @@ class ProxyServer extends Model
     use HasFactory;
 
     protected $fillable = [
+        'proxy_key',
         'protocol',
         'host',
         'port',
@@ -89,6 +91,40 @@ class ProxyServer extends Model
     public function isCoolingDown(): bool
     {
         return $this->cooldown_until !== null && $this->cooldown_until->isFuture();
+    }
+
+    protected static function booted(): void
+    {
+        static::saving(function (ProxyServer $proxy) {
+            if (empty($proxy->proxy_key)) {
+                $proxy->proxy_key = static::generateKey(
+                    $proxy->protocol ?? 'http',
+                    $proxy->host,
+                    (int) $proxy->port,
+                    $proxy->username,
+                    $proxy->password
+                );
+            }
+        });
+    }
+
+    /**
+     * Генерация уникального детерминированного ключа для прокси-сервера.
+     * Позволяет надежно различать покупные прокси с одинаковым host и port, но разными учетными данными.
+     */
+    public static function generateKey(
+        string $protocol,
+        string $host,
+        int $port,
+        ?string $username = null,
+        ?string $password = null
+    ): string {
+        $proto = strtolower(trim($protocol !== '' ? $protocol : 'http'));
+        $h = strtolower(trim($host));
+        $u = $username !== null ? trim($username) : '';
+        $p = $password !== null ? trim($password) : '';
+
+        return hash('sha256', "{$proto}://{$u}:{$p}@{$h}:{$port}");
     }
 
     public function toDto(): ProxyDto

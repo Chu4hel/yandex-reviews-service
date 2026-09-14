@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace App\Providers;
 
 use App\Domain\Contracts\CircuitBreakerInterface;
+use App\Domain\Contracts\ProxyCheckerInterface;
 use App\Domain\Contracts\ProxyRotatorInterface;
 use App\Domain\Contracts\YandexParserInterface;
 use App\Infrastructure\Services\CacheCircuitBreaker;
 use App\Infrastructure\Services\DatabaseProxyRotator;
+use App\Infrastructure\Services\HttpProxyChecker;
 use App\Infrastructure\Services\YandexMapsParserService;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Events\ConnectionEstablished;
@@ -38,6 +40,11 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(
             YandexParserInterface::class,
             YandexMapsParserService::class
+        );
+
+        $this->app->singleton(
+            ProxyCheckerInterface::class,
+            HttpProxyChecker::class
         );
     }
 

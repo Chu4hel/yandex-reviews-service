@@ -41,10 +41,11 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->prefix('proxies')->group(fu
 
 // Административный контур (сессия администратора is_admin: true либо заголовок X-Admin-Key)
 Route::middleware(['admin.access', 'throttle:api'])->prefix('admin')->group(function () {
-    // Управление пулом прокси (просмотр, переключение активности, удаление)
+    // Управление пулом прокси (просмотр, переключение активности, удаление, тестовый пинг)
     Route::get('/proxies', [ProxyServerController::class, 'index']);
     Route::post('/proxies', [ProxyServerController::class, 'store']);
     Route::post('/proxies/{proxy}/toggle', [ProxyServerController::class, 'toggle']);
+    Route::post('/proxies/{proxy}/ping', [ProxyServerController::class, 'ping']);
     Route::delete('/proxies/{proxy}', [ProxyServerController::class, 'destroy']);
 
     // Системные настройки и метрики очередей
@@ -55,5 +56,6 @@ Route::middleware(['admin.access', 'throttle:api'])->prefix('admin')->group(func
 Route::middleware(['admin.access', 'throttle:api'])->prefix('proxies')->group(function () {
     Route::get('/', [ProxyServerController::class, 'index']);
     Route::post('/{proxy}/toggle', [ProxyServerController::class, 'toggle']);
+    Route::post('/{proxy}/ping', [ProxyServerController::class, 'ping']);
     Route::delete('/{proxy}', [ProxyServerController::class, 'destroy']);
 });

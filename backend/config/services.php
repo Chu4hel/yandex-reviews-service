@@ -44,4 +44,9 @@ return [
         'max_sync_pages' => env('YANDEX_MAX_SYNC_PAGES', 12),
     ],
 
+    'proxy' => [
+        'check_url' => env('PROXY_CHECK_URL', 'https://ya.ru'),
+        'check_timeout' => (int) env('PROXY_CHECK_TIMEOUT', 5),
+    ],
+
 ];

@@ -274,7 +274,7 @@ onUnmounted(() => {
 
         <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
           Любой авторизованный пользователь может пополнять пул серверов для бесперебойной ротации запросов.
-          Поддерживаются форматы: <code class="text-red-600 font-mono">host:port</code>, <code class="text-red-600 font-mono">host:port:login:pass</code>, <code class="text-red-600 font-mono">http://login:pass@host:port</code>, <code class="text-red-600 font-mono">socks5://...</code>.
+          Поддерживаются форматы: <code class="text-red-600 font-mono">host:port</code>, <code class="text-red-600 font-mono">host:port:login:pass</code>, <code class="text-red-600 font-mono">http://login:pass@host:port</code>, <code class="text-red-600 font-mono">socks5://...</code> (включая одинаковые шлюзы покупных прокси). При добавлении выполняется автоматический тестовый пинг каждого сервера.
         </p>
 
         <div v-if="proxyModalError" class="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200 text-xs">

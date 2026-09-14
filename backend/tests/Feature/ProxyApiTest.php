@@ -4,14 +4,26 @@ declare(strict_types=1);
 
 namespace Tests\Feature;
 
+use App\Domain\Contracts\ProxyCheckerInterface;
+use App\Domain\DTO\ProxyPingResult;
 use App\Models\ProxyServer;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class ProxyApiTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        Http::fake([
+            '*' => Http::response('<html><head><title>Yandex</title></head><body>OK</body></html>', 200),
+        ]);
+    }
 
     public function test_guest_cannot_access_proxy_api(): void
     {
@@ -208,5 +220,82 @@ class ProxyApiTest extends TestCase
         $response->assertJsonPath('data.0.username', 'revealed_admin_user');
         $response->assertJsonPath('data.0.masked_endpoint', 'http://revealed_admin_user:***@10.50.0.2:8080');
         $response->assertJsonMissing(['password' => 'secret_password_never_expose']);
+    }
+
+    public function test_purchased_proxies_with_identical_url_and_different_credentials_are_both_saved(): void
+    {
+        $admin = User::factory()->create(['is_admin' => true]);
+
+        // Покупные прокси с одинаковым host и port (gateway/url), но разными логинами и паролями
+        $response = $this->actingAs($admin, 'sanctum')->postJson('/api/proxies', [
+            'proxies' => [
+                'proxy-gate.net:8000:client_zone_1:pass_secret_1',
+                'proxy-gate.net:8000:client_zone_2:pass_secret_2',
+            ],
+        ]);
+
+        $response->assertStatus(201);
+        $response->assertJsonPath('count', 2);
+
+        // Убеждаемся, что в базе сохранены ОБЕ прокси, а не одна перезаписала другую
+        $this->assertDatabaseHas('proxy_servers', [
+            'host' => 'proxy-gate.net',
+            'port' => 8000,
+            'username' => 'client_zone_1',
+        ]);
+        $this->assertDatabaseHas('proxy_servers', [
+            'host' => 'proxy-gate.net',
+            'port' => 8000,
+            'username' => 'client_zone_2',
+        ]);
+        $this->assertEquals(2, ProxyServer::where('host', 'proxy-gate.net')->where('port', 8000)->count());
+    }
+
+    public function test_proxy_ping_failure_saves_proxy_as_inactive(): void
+    {
+        $mockChecker = \Mockery::mock(ProxyCheckerInterface::class);
+        $mockChecker->shouldReceive('pingMany')->once()->andReturn([
+            0 => ProxyPingResult::failure('Connection refused: 111', 2000),
+        ]);
+        $this->app->instance(ProxyCheckerInterface::class, $mockChecker);
+
+        $admin = User::factory()->create(['is_admin' => true]);
+
+        $response = $this->actingAs($admin, 'sanctum')->postJson('/api/proxies', [
+            'proxy' => 'broken-proxy.example.com:3128:user:pass',
+        ]);
+
+        $response->assertStatus(201);
+        $response->assertJsonPath('count', 1);
+        $response->assertJsonPath('failed_count', 1);
+
+        $proxy = ProxyServer::where('host', 'broken-proxy.example.com')->first();
+        $this->assertNotNull($proxy);
+        $this->assertFalse($proxy->is_active);
+        $this->assertStringContainsString('Тестовый пинг не удался', (string) $proxy->last_error);
+    }
+
+    public function test_admin_can_ping_existing_proxy(): void
+    {
+        $admin = User::factory()->create(['is_admin' => true]);
+
+        $proxy = ProxyServer::create([
+            'protocol' => 'http',
+            'host' => '10.200.1.1',
+            'port' => 8080,
+            'is_active' => false,
+            'fails_count' => 5,
+        ]);
+
+        Http::fake([
+            '*' => Http::response('<html>OK</html>', 200),
+        ]);
+
+        $response = $this->actingAs($admin, 'sanctum')->postJson("/api/admin/proxies/{$proxy->id}/ping");
+
+        $response->assertStatus(200);
+        $response->assertJsonPath('success', true);
+        $this->assertTrue($proxy->fresh()->is_active);
+        $this->assertEquals(0, $proxy->fresh()->fails_count);
     }
 }

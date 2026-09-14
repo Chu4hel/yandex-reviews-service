@@ -226,3 +226,31 @@ export const deleteProxyApi = async (id: number): Promise<{ message: string }> =
   return response.data
 }
 
+export const pingProxyApi = async (id: number): Promise<{
+  success: boolean
+  is_captcha: boolean
+  ping_ms: number
+  error: string | null
+  proxy: ProxyServerItem
+}> => {
+  const response = await api.post<{
+    success: boolean
+    is_captcha: boolean
+    ping_ms: number
+    error: string | null
+    proxy: { data?: ProxyServerItem } | ProxyServerItem
+  }>(`/admin/proxies/${id}/ping`)
+
+  const rawProxy = response.data.proxy
+  const resolvedProxy = ('data' in rawProxy && rawProxy.data) ? rawProxy.data : (rawProxy as ProxyServerItem)
+
+  return {
+    success: response.data.success,
+    is_captcha: response.data.is_captcha,
+    ping_ms: response.data.ping_ms,
+    error: response.data.error,
+    proxy: resolvedProxy,
+  }
+}
+
+

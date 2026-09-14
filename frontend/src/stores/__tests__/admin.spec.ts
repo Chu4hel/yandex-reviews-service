@@ -10,6 +10,7 @@ vi.mock('@/services/api', () => ({
   addProxiesApi: vi.fn(),
   toggleProxyApi: vi.fn(),
   deleteProxyApi: vi.fn(),
+  pingProxyApi: vi.fn(),
 }))
 
 describe('admin store', () => {
@@ -129,5 +130,27 @@ describe('admin store', () => {
 
     expect(result).toBe(true)
     expect(store.proxies).toHaveLength(0)
+  })
+
+  it('pings proxy and updates latency and status in store', async () => {
+    const updatedProxy: ProxyServerItem = { ...mockProxy, avg_response_time_ms: 120, is_active: true }
+    vi.mocked(api.pingProxyApi).mockResolvedValue({
+      success: true,
+      is_captcha: false,
+      ping_ms: 120,
+      error: null,
+      proxy: updatedProxy,
+    })
+    vi.mocked(api.getAdminSettingsApi).mockResolvedValue(mockSettings)
+
+    const store = useAdminStore()
+    store.proxies = [mockProxy]
+
+    const result = await store.pingProxy(1)
+
+    expect(result).toBe(true)
+    expect(store.proxies[0]?.avg_response_time_ms).toBe(120)
+    expect(store.actionSuccess).toContain('Пинг успешен (120 мс)')
+    expect(api.pingProxyApi).toHaveBeenCalledWith(1)
   })
 })

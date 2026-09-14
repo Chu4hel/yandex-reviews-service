@@ -7,11 +7,13 @@ import {
   addProxiesApi,
   toggleProxyApi,
   deleteProxyApi,
+  pingProxyApi,
 } from '@/services/api'
 
 export const useAdminStore = defineStore('admin', () => {
   const settings = ref<SystemSettingsData | null>(null)
   const proxies = ref<ProxyServerItem[]>([])
+  const pingingProxyIds = ref<number[]>([])
   const isLoadingSettings = ref<boolean>(false)
   const isLoadingProxies = ref<boolean>(false)
   const isSubmitting = ref<boolean>(false)
@@ -125,6 +127,42 @@ export const useAdminStore = defineStore('admin', () => {
     }
   }
 
+  const pingProxy = async (id: number): Promise<boolean> => {
+    if (pingingProxyIds.value.includes(id)) {
+      return false
+    }
+    pingingProxyIds.value.push(id)
+    error.value = null
+    try {
+      const res = await pingProxyApi(id)
+      const index = proxies.value.findIndex((p) => p.id === id)
+      if (index !== -1) {
+        proxies.value[index] = res.proxy
+      }
+      if (res.success) {
+        actionSuccess.value = `Пинг успешен (${res.ping_ms} мс)! Прокси активен.`
+      } else if (res.is_captcha) {
+        actionSuccess.value = `Прокси под капчей (${res.ping_ms} мс). Отправлен на 30 мин охлаждения.`
+      } else {
+        error.value = `Пинг не удался: ${res.error ?? 'Таймаут соединения'}`
+      }
+      await fetchSettings()
+      return res.success
+    } catch (err: unknown) {
+      if (typeof err === 'object' && err !== null && 'response' in err) {
+        const axiosErr = err as { response?: { data?: { message?: string } } }
+        error.value = axiosErr.response?.data?.message ?? 'Не удалось выполнить пинг прокси'
+      } else if (err instanceof Error) {
+        error.value = err.message
+      } else {
+        error.value = 'Ошибка выполнения пинга прокси'
+      }
+      return false
+    } finally {
+      pingingProxyIds.value = pingingProxyIds.value.filter((item) => item !== id)
+    }
+  }
+
   const clearMessages = (): void => {
     error.value = null
     actionSuccess.value = null
@@ -133,6 +171,7 @@ export const useAdminStore = defineStore('admin', () => {
   return {
     settings,
     proxies,
+    pingingProxyIds,
     isLoadingSettings,
     isLoadingProxies,
     isSubmitting,
@@ -143,6 +182,7 @@ export const useAdminStore = defineStore('admin', () => {
     addProxies,
     toggleProxy,
     deleteProxy,
+    pingProxy,
     clearMessages,
   }
 })

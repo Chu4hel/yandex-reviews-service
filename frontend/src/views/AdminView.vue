@@ -114,6 +114,17 @@ const handleDelete = async (id: number, host: string, port: number): Promise<voi
   }
 }
 
+const handlePing = async (id: number, endpoint: string): Promise<void> => {
+  const success = await adminStore.pingProxy(id)
+  if (success) {
+    notificationStore.success('Пинг успешен', `Прокси ${endpoint} проверен и активен`)
+  } else if (adminStore.actionSuccess) {
+    notificationStore.info('Результат проверки', adminStore.actionSuccess)
+  } else if (adminStore.error) {
+    notificationStore.error('Ошибка пинга', adminStore.error)
+  }
+}
+
 const formatDateTime = (dateStr: string | null): string => {
   if (!dateStr) return 'Не использовался'
   try {
@@ -450,7 +461,7 @@ const formatDateTime = (dateStr: string | null): string => {
         <div>
           <h3 class="text-base font-bold text-slate-900 dark:text-white">Добавить прокси-серверы в пул</h3>
           <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-            Введите адреса прокси по одному на строку. Поддерживаются любые форматы с авторизацией: <code class="text-red-600 font-mono">ip:port:login:password</code>, <code class="text-red-600 font-mono">ip:port@login:password</code>, <code class="text-red-600 font-mono">http://user:pass@host:port</code>, <code class="text-red-600 font-mono">socks5://...</code> или <code class="text-red-600 font-mono">ip:port</code>.
+            Введите адреса прокси по одному на строку. Поддерживаются любые форматы: <code class="text-red-600 font-mono">ip:port:login:password</code>, <code class="text-red-600 font-mono">http://user:pass@host:port</code>, <code class="text-red-600 font-mono">socks5://...</code> или <code class="text-red-600 font-mono">ip:port</code>. Поддерживаются покупные прокси с одинаковым адресом шлюза (URL), но разными логинами. При добавлении выполняется автоматический тестовый пинг каждого сервера.
           </p>
         </div>
         <button
@@ -681,6 +692,35 @@ const formatDateTime = (dateStr: string | null): string => {
               <!-- Actions -->
               <td class="px-5 py-3.5 text-right whitespace-nowrap">
                 <div class="inline-flex items-center gap-2">
+                  <!-- Ping Button -->
+                  <button
+                    type="button"
+                    @click="handlePing(proxy.id, `${proxy.host}:${proxy.port}`)"
+                    :disabled="adminStore.pingingProxyIds.includes(proxy.id)"
+                    class="px-2.5 py-1 rounded-lg text-xs font-medium border border-blue-200 dark:border-blue-900/60 text-blue-700 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition cursor-pointer disabled:opacity-50 flex items-center gap-1"
+                    title="Выполнить тестовый пинг соединения"
+                  >
+                    <svg
+                      v-if="adminStore.pingingProxyIds.includes(proxy.id)"
+                      class="w-3.5 h-3.5 animate-spin"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+                    </svg>
+                    <svg
+                      v-else
+                      class="w-3.5 h-3.5"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    <span>Пинг</span>
+                  </button>
+
                   <!-- Toggle Button -->
                   <button
                     type="button"

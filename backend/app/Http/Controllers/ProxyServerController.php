@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Domain\Contracts\ProxyCheckerInterface;
 use App\Http\Resources\ProxyServerResource;
 use App\Models\ProxyServer;
 use App\Support\ProxyStringParser;
@@ -24,14 +25,15 @@ class ProxyServerController extends Controller
     }
 
     /**
-     * Добавление одного или нескольких прокси-серверов в пул.
+     * Добавление одного или нескольких прокси-серверов в пул с тестовым пингом и поддержкой одинаковых URL.
      */
-    public function store(Request $request): JsonResponse
+    public function store(Request $request, ProxyCheckerInterface $proxyChecker): JsonResponse
     {
         $validated = $request->validate([
             'proxies' => ['nullable', 'array'],
             'proxies.*' => ['required', 'string'],
             'proxy' => ['nullable', 'string'],
+            'skip_ping' => ['nullable', 'boolean'],
         ]);
 
         $rawList = [];
@@ -52,33 +54,146 @@ class ProxyServerController extends Controller
             ], 422);
         }
 
-        $added = [];
+        $parsedList = [];
         foreach ($rawList as $raw) {
             $parsed = $this->parseProxyString($raw);
-            if (! $parsed) {
-                continue;
+            if ($parsed) {
+                $parsedList[] = $parsed;
+            }
+        }
+
+        if (empty($parsedList)) {
+            return response()->json([
+                'message' => 'Ни один из переданных адресов не соответствует поддерживаемым форматам.',
+            ], 422);
+        }
+
+        $skipPing = (bool) ($validated['skip_ping'] ?? false);
+        $pingResults = [];
+        if (! $skipPing) {
+            $pingResults = $proxyChecker->pingMany($parsedList);
+        }
+
+        $added = [];
+        $details = [];
+
+        foreach ($parsedList as $idx => $parsed) {
+            $proxyKey = ProxyServer::generateKey(
+                $parsed['protocol'],
+                $parsed['host'],
+                $parsed['port'],
+                $parsed['username'],
+                $parsed['password']
+            );
+
+            $ping = $pingResults[$idx] ?? null;
+
+            $isActive = true;
+            $cooldownUntil = null;
+            $failsCount = 0;
+            $lastError = null;
+            $avgResponseTimeMs = null;
+
+            if ($ping !== null) {
+                if ($ping->isSuccess) {
+                    $isActive = true;
+                    $avgResponseTimeMs = $ping->responseTimeMs;
+                } elseif ($ping->isCaptcha) {
+                    $isActive = true;
+                    $cooldownUntil = now()->addMinutes(30);
+                    $failsCount = 1;
+                    $lastError = 'Карантин: обнаружена капча при тестовом пинге';
+                    $avgResponseTimeMs = $ping->responseTimeMs;
+                } else {
+                    $isActive = false;
+                    $failsCount = 1;
+                    $lastError = 'Тестовый пинг не удался: '.mb_substr((string) $ping->errorMessage, 0, 450);
+                }
             }
 
             $proxy = ProxyServer::updateOrCreate(
-                ['host' => $parsed['host'], 'port' => $parsed['port']],
+                ['proxy_key' => $proxyKey],
                 [
                     'protocol' => $parsed['protocol'],
+                    'host' => $parsed['host'],
+                    'port' => $parsed['port'],
                     'username' => $parsed['username'],
                     'password' => $parsed['password'],
-                    'is_active' => true,
-                    'cooldown_until' => null,
-                    'fails_count' => 0,
+                    'is_active' => $isActive,
+                    'cooldown_until' => $cooldownUntil,
+                    'fails_count' => $failsCount,
+                    'last_error' => $lastError,
+                    'avg_response_time_ms' => $avgResponseTimeMs,
                 ]
             );
 
             $added[] = $proxy;
+            $details[] = [
+                'id' => $proxy->id,
+                'endpoint' => "{$parsed['host']}:{$parsed['port']}",
+                'status' => $ping ? ($ping->isSuccess ? 'active' : ($ping->isCaptcha ? 'cooldown' : 'failed')) : 'added',
+                'ping_ms' => $ping?->responseTimeMs,
+                'error' => $lastError,
+            ];
+        }
+
+        $activeCount = count(array_filter($added, fn (ProxyServer $p) => $p->is_active && ! $p->isCoolingDown()));
+        $failedCount = count(array_filter($added, fn (ProxyServer $p) => ! $p->is_active));
+
+        $message = count($added) === 1
+            ? ($failedCount > 0 ? 'Прокси добавлен, но тестовый пинг не удался (сервер отключен).' : 'Прокси-сервер успешно проверен и добавлен в пул.')
+            : "Обработано прокси: {$activeCount} доступно".($failedCount > 0 ? ", {$failedCount} не ответили на пинг." : '.');
+
+        return response()->json([
+            'message' => $message,
+            'count' => count($added),
+            'active_count' => $activeCount,
+            'failed_count' => $failedCount,
+            'details' => $details,
+            'proxies' => ProxyServerResource::collection($added),
+        ], 201);
+    }
+
+    /**
+     * Выполнить тестовый пинг существующего прокси-сервера.
+     */
+    public function ping(ProxyServer $proxy, ProxyCheckerInterface $proxyChecker): JsonResponse
+    {
+        $result = $proxyChecker->ping([
+            'protocol' => $proxy->protocol,
+            'host' => $proxy->host,
+            'port' => $proxy->port,
+            'username' => $proxy->username,
+            'password' => $proxy->password,
+        ]);
+
+        if ($result->isSuccess) {
+            $proxy->update([
+                'is_active' => true,
+                'fails_count' => 0,
+                'cooldown_until' => null,
+                'last_error' => null,
+                'avg_response_time_ms' => $result->responseTimeMs,
+            ]);
+        } elseif ($result->isCaptcha) {
+            $proxy->update([
+                'cooldown_until' => now()->addMinutes(30),
+                'last_error' => 'Карантин: обнаружена капча при тестовом пинге',
+                'avg_response_time_ms' => $result->responseTimeMs,
+            ]);
+        } else {
+            $proxy->update([
+                'last_error' => 'Тестовый пинг не удался: '.mb_substr((string) $result->errorMessage, 0, 450),
+            ]);
         }
 
         return response()->json([
-            'message' => 'Прокси-серверы успешно добавлены в пул ротации.',
-            'count' => count($added),
-            'proxies' => ProxyServerResource::collection($added),
-        ], 201);
+            'success' => $result->isSuccess,
+            'is_captcha' => $result->isCaptcha,
+            'ping_ms' => $result->responseTimeMs,
+            'error' => $result->errorMessage,
+            'proxy' => new ProxyServerResource($proxy->fresh()),
+        ]);
     }
 
     /**
