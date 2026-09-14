@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Prunable;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
 
@@ -29,6 +31,7 @@ use Illuminate\Support\Carbon;
 class OrganizationSnapshot extends Model
 {
     use HasFactory;
+    use Prunable;
 
     protected $fillable = [
         'organization_id',
@@ -56,6 +59,18 @@ class OrganizationSnapshot extends Model
             'updated_reviews_count' => 'integer',
             'snapshot_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Get the prunable model query.
+     *
+     * @return Builder<static>
+     */
+    public function prunable(): Builder
+    {
+        $days = (int) config('services.snapshots.prune_days', 90);
+
+        return static::query()->where('snapshot_at', '<=', now()->subDays($days));
     }
 
     /**
