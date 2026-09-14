@@ -16,6 +16,7 @@ import type { Review, PaginationMeta } from '@/types/review'
 import type { OrganizationSnapshot } from '@/types/snapshot'
 import RatingStars from '@/components/RatingStars.vue'
 import ReviewCard from '@/components/ReviewCard.vue'
+import ReviewSkeleton from '@/components/ReviewSkeleton.vue'
 import Pagination from '@/components/Pagination.vue'
 import ReputationTrendChart from '@/components/ReputationTrendChart.vue'
 
@@ -37,6 +38,8 @@ const snapshots = ref<OrganizationSnapshot[]>([])
 const activeTab = ref<'reviews' | 'snapshots'>('reviews')
 const selectedRating = ref<number>(0)
 const selectedSort = ref<string>('date_desc')
+const searchQuery = ref<string>('')
+let searchDebounceTimer: number | null = null
 
 const isLoading = ref<boolean>(true)
 const isReviewsLoading = ref<boolean>(false)
@@ -66,7 +69,13 @@ const loadOrganization = async (): Promise<void> => {
 const loadReviews = async (page = 1): Promise<void> => {
   isReviewsLoading.value = true
   try {
-    const res = await getOrganizationReviewsApi(orgId, page, selectedRating.value, selectedSort.value)
+    const res = await getOrganizationReviewsApi(
+      orgId,
+      page,
+      selectedRating.value,
+      selectedSort.value,
+      searchQuery.value
+    )
     reviews.value = res.data
     meta.value = res.meta
   } catch (err: unknown) {
@@ -94,16 +103,33 @@ const handleFilterChange = (): void => {
   void loadReviews(1)
 }
 
+const handleSearchInput = (): void => {
+  if (searchDebounceTimer) {
+    window.clearTimeout(searchDebounceTimer)
+  }
+  searchDebounceTimer = window.setTimeout(() => {
+    void loadReviews(1)
+  }, 300)
+}
+
+const clearSearch = (): void => {
+  searchQuery.value = ''
+  void loadReviews(1)
+}
+
 const isExporting = ref<boolean>(false)
 
 const handleExport = async (): Promise<void> => {
   isExporting.value = true
   try {
-    const blob = await exportOrganizationReviewsApi(orgId, selectedRating.value)
+    const blob = await exportOrganizationReviewsApi(orgId, selectedRating.value, searchQuery.value)
     const url = window.URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    const suffix = selectedRating.value > 0 ? `_${selectedRating.value}stars` : ''
+    const suffixParts: string[] = []
+    if (selectedRating.value > 0) suffixParts.push(`${selectedRating.value}stars`)
+    if (searchQuery.value) suffixParts.push('filtered')
+    const suffix = suffixParts.length > 0 ? `_${suffixParts.join('_')}` : ''
     a.download = `reviews_${organization.value?.name || 'organization'}${suffix}.csv`
     document.body.appendChild(a)
     a.click()
@@ -383,7 +409,7 @@ onUnmounted(() => {
 
       <!-- TAB 1: REVIEWS -->
       <div v-if="activeTab === 'reviews'" class="space-y-4">
-        <!-- Controls: Filters & Sort -->
+        <!-- Controls: Filters, Search & Sort -->
         <div class="bg-white dark:bg-slate-800 rounded-xl p-4 border border-slate-200 dark:border-slate-700 flex flex-wrap items-center justify-between gap-4">
           <!-- Rating Filter -->
           <div class="flex items-center gap-2">
@@ -419,6 +445,34 @@ onUnmounted(() => {
             </div>
           </div>
 
+          <!-- Search Input -->
+          <div class="relative flex-1 min-w-[200px] max-w-sm">
+            <input
+              v-model="searchQuery"
+              @input="handleSearchInput"
+              type="text"
+              placeholder="Поиск по отзывам и авторам..."
+              class="w-full pl-8 pr-8 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-xs text-slate-900 dark:text-slate-100 placeholder-slate-400 focus:outline-hidden focus:ring-1 focus:ring-red-500 focus:border-red-500 transition"
+            />
+            <svg
+              class="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <button
+              v-if="searchQuery"
+              @click="clearSearch"
+              type="button"
+              class="absolute right-2 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs cursor-pointer p-0.5"
+              title="Очистить поиск"
+            >
+              ✕
+            </button>
+          </div>
+
           <!-- Right Side: Sort & Export -->
           <div class="flex items-center gap-3">
             <div class="flex items-center gap-2">
@@ -450,13 +504,23 @@ onUnmounted(() => {
           </div>
         </div>
 
-        <!-- Reviews List -->
-        <div v-if="isReviewsLoading" class="text-center py-12 text-slate-400 text-sm">
-          Загрузка страницы с отзывами...
+        <!-- Reviews Skeleton / List -->
+        <div v-if="isReviewsLoading" class="space-y-4">
+          <ReviewSkeleton v-for="i in 5" :key="i" />
         </div>
 
         <div v-else-if="reviews.length === 0" class="bg-white dark:bg-slate-800 rounded-xl p-12 text-center border border-slate-200 dark:border-slate-700">
-          <p class="text-slate-500 text-sm">Отзывы не найдены по заданным фильтрам.</p>
+          <p class="text-slate-500 text-sm">
+            {{ searchQuery ? 'По вашему поисковому запросу отзывы не найдены.' : 'Отзывы не найдены по заданным фильтрам.' }}
+          </p>
+          <button
+            v-if="searchQuery || selectedRating > 0"
+            type="button"
+            @click="searchQuery = ''; selectedRating = 0; handleFilterChange()"
+            class="mt-3 inline-flex items-center gap-1 text-xs text-red-600 dark:text-red-400 hover:underline font-medium cursor-pointer"
+          >
+            Сбросить фильтры
+          </button>
         </div>
 
         <div v-else class="space-y-4">

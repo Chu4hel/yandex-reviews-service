@@ -116,4 +116,40 @@ class OrganizationExportTest extends TestCase
         $this->assertStringContainsString('rev_5stars;Петр', $content);
         $this->assertStringNotContainsString('rev_1star;Ольга', $content);
     }
+
+    public function test_export_filters_by_search_term(): void
+    {
+        $user = User::factory()->create();
+        $org = Organization::create([
+            'yandex_org_id' => '10004',
+            'name' => 'Пекарня',
+            'url' => 'https://yandex.ru/maps/org/10004/reviews/',
+        ]);
+
+        Review::create([
+            'organization_id' => $org->id,
+            'yandex_review_id' => 'rev_croissant',
+            'author_name' => 'Виктор',
+            'rating' => 5,
+            'text' => 'Свежие круассаны каждое утро',
+            'published_at' => now(),
+        ]);
+
+        Review::create([
+            'organization_id' => $org->id,
+            'yandex_review_id' => 'rev_baguette',
+            'author_name' => 'Мария',
+            'rating' => 4,
+            'text' => 'Французский багет хрустит',
+            'published_at' => now(),
+        ]);
+
+        $response = $this->actingAs($user, 'sanctum')->get("/api/organizations/{$org->id}/export?search=круассан");
+
+        $response->assertStatus(200);
+        $content = $response->streamedContent();
+
+        $this->assertStringContainsString('rev_croissant;Виктор', $content);
+        $this->assertStringNotContainsString('rev_baguette;Мария', $content);
+    }
 }

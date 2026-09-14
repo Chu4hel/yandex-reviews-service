@@ -176,6 +176,20 @@ class OrganizationController extends Controller
             }
         }
 
+        // Поиск по тексту отзыва и имени автора (регистронезависимый для UTF-8 / кириллицы)
+        if ($request->filled('search')) {
+            $searchTerm = trim((string) $request->input('search'));
+            if ($searchTerm !== '') {
+                $lowered = mb_strtolower($searchTerm, 'UTF-8');
+                $escaped = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $lowered);
+                $pattern = "%{$escaped}%";
+                $query->where(function ($q) use ($pattern) {
+                    $q->whereRaw('LOWER(text) LIKE ?', [$pattern])
+                        ->orWhereRaw('LOWER(author_name) LIKE ?', [$pattern]);
+                });
+            }
+        }
+
         // Сортировка отзывов
         $sort = $request->input('sort', 'date_desc');
         match ($sort) {
@@ -224,6 +238,19 @@ class OrganizationController extends Controller
             $rating = (int) $request->input('rating');
             if ($rating >= 1 && $rating <= 5) {
                 $query->where('rating', $rating);
+            }
+        }
+
+        if ($request->filled('search')) {
+            $searchTerm = trim((string) $request->input('search'));
+            if ($searchTerm !== '') {
+                $lowered = mb_strtolower($searchTerm, 'UTF-8');
+                $escaped = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $lowered);
+                $pattern = "%{$escaped}%";
+                $query->where(function ($q) use ($pattern) {
+                    $q->whereRaw('LOWER(text) LIKE ?', [$pattern])
+                        ->orWhereRaw('LOWER(author_name) LIKE ?', [$pattern]);
+                });
             }
         }
 

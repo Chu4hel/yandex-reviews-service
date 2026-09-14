@@ -124,7 +124,8 @@ export const getOrganizationReviewsApi = async (
   id: number,
   page = 1,
   rating?: number,
-  sort?: string
+  sort?: string,
+  search?: string
 ): Promise<PaginatedReviewsResponse> => {
   const params: Record<string, string | number> = { page }
   if (rating !== undefined && rating > 0) {
@@ -132,6 +133,9 @@ export const getOrganizationReviewsApi = async (
   }
   if (sort) {
     params.sort = sort
+  }
+  if (search && search.trim() !== '') {
+    params.search = search.trim()
   }
   const response = await api.get<PaginatedReviewsResponse>(`/organizations/${id}/reviews`, { params })
   return response.data
@@ -142,10 +146,17 @@ export const getOrganizationSnapshotsApi = async (id: number): Promise<{ data: O
   return response.data
 }
 
-export const exportOrganizationReviewsApi = async (id: number, rating?: number): Promise<Blob> => {
+export const exportOrganizationReviewsApi = async (
+  id: number,
+  rating?: number,
+  search?: string
+): Promise<Blob> => {
   const params: Record<string, string | number> = {}
   if (rating !== undefined && rating > 0) {
     params.rating = rating
+  }
+  if (search && search.trim() !== '') {
+    params.search = search.trim()
   }
   const response = await api.get(`/organizations/${id}/export`, {
     params,

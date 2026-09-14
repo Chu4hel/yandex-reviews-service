@@ -148,4 +148,66 @@ class OrganizationApiTest extends TestCase
             ->assertJsonCount(25, 'data')
             ->assertJsonPath('meta.current_page', 2);
     }
+
+    public function test_reviews_filter_by_search(): void
+    {
+        $org = Organization::create([
+            'yandex_org_id' => '888999000',
+            'name' => 'Кафе у дома',
+            'url' => 'https://yandex.ru/maps/org/888999000/reviews/',
+            'rating' => 4.5,
+            'ratings_count' => 10,
+            'reviews_count' => 3,
+        ]);
+
+        Review::create([
+            'organization_id' => $org->id,
+            'yandex_review_id' => 'rev_srch_1',
+            'author_name' => 'Михаил Пиццеед',
+            'rating' => 5,
+            'text' => 'Самая хрустящая пепперони в городе',
+            'published_at' => now(),
+        ]);
+
+        Review::create([
+            'organization_id' => $org->id,
+            'yandex_review_id' => 'rev_srch_2',
+            'author_name' => 'Елена',
+            'rating' => 4,
+            'text' => 'Хороший чай и тихая атмосфера',
+            'published_at' => now()->subHour(),
+        ]);
+
+        Review::create([
+            'organization_id' => $org->id,
+            'yandex_review_id' => 'rev_srch_3',
+            'author_name' => 'Василий',
+            'rating' => 2,
+            'text' => 'Долгая доставка пиццы',
+            'published_at' => now()->subDay(),
+        ]);
+
+        // Поиск по тексту "пепперони"
+        $respText = $this->withHeader('Authorization', 'Bearer '.$this->token)
+            ->getJson("/api/organizations/{$org->id}/reviews?search=пепперони");
+
+        $respText->assertStatus(200)
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.author_name', 'Михаил Пиццеед');
+
+        // Поиск по автору "Михаил"
+        $respAuthor = $this->withHeader('Authorization', 'Bearer '.$this->token)
+            ->getJson("/api/organizations/{$org->id}/reviews?search=Михаил");
+
+        $respAuthor->assertStatus(200)
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.yandex_review_id', 'rev_srch_1');
+
+        // Поиск по общему слову "пицц" (находит 2 отзыва)
+        $respBoth = $this->withHeader('Authorization', 'Bearer '.$this->token)
+            ->getJson("/api/organizations/{$org->id}/reviews?search=пицц");
+
+        $respBoth->assertStatus(200)
+            ->assertJsonCount(2, 'data');
+    }
 }
