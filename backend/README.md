@@ -1,59 +1,138 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Бэкенд-сервис интеграции с Яндекс.Картами (GeoReviews Backend)
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+REST API сервис на базе **Laravel 12** и **PHP 8.2+**, реализующий отказоустойчивый сбор метаданных, рейтингов и отзывов организаций с публичных страниц Яндекс Карт, ведение истории снимков репутации (снапшотов), динамический пул ротации прокси-серверов и административный контур мониторинга.
 
-## About Laravel
+---
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## 🏛 Архитектура и принципы проектирования
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+Проект спроектирован по принципам чистой архитектуры с соблюдением **Dependency Inversion Principle (DIP)**:
+- **`app/Domain`**: Ядро бизнес-логики, не зависящее от фреймворка и внешних сервисов:
+  - `Contracts/`: Интерфейсы парсера (`YandexParserInterface`) и пула ротации (`ProxyRotatorInterface`).
+  - `DTO/`: Неизменяемые типизированные объекты передачи данных (`ParsedOrganizationDto`, `ParsedReviewDto`, `ParsedReviewsBatchDto`, `ProxyDto`, `SyncResultDto`).
+  - `Exceptions/`: Иерархия доменных исключений (`YandexCaptchaDetectedException`, `YandexMarkupChangedException`, `YandexOrganizationNotFoundException`, `YandexParserException`).
+- **`app/Infrastructure`**: Реализация низкоуровневых сервисов и внешних интеграций:
+  - `Services/YandexMapsParserService.php`: Парсер HTML-разметки Яндекс Карт (детекция SmartCaptcha/WAF, извлечение JSON из `state-view`, разбор отзывов, следование по редиректам коротких ссылок).
+  - `Services/DatabaseProxyRotator.php`: Динамическая ротация прокси по политике LRU (наименее недавно использованный), учет задержки (EMA), автоматический перевод в 30-минутный карантин при детекции капчи и отключение после 15 ошибок подряд.
+- **`app/Services`**: Прикладной оркестратор:
+  - `OrganizationSyncService.php`: Идемпотентное сохранение организаций и отзывов, управление циклом синхронизации, фиксация снимков изменений.
+- **`app/Jobs`**: Асинхронные очереди:
+  - `SyncOrganizationReviewsJob.php`: Фоновая задача синхронизации до ~600 отзывов (12 страниц по 50 отзывов) с экспоненциальным повтором (`backoff = [10, 30, 60]`).
+- **`app/Support`**: Утилитарные сервисы:
+  - `ContentSanitizer.php`: Очистка XSS-векторов, удаление опасных HTML-тегов, фильтрация управляющих символов и валидация безопасных схем URL.
+  - `ProxyStringParser.php`: Универсальный парсер адресов прокси (`ip:port`, `ip:port:login:password`, `ip:port@login:password`, `user:password@ip:port`, `socks5://...`).
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+---
 
-## Learning Laravel
+## 🛡 Безопасность и надежность (SRE / Security)
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+1. **Контроль доступа к API администратора (`EnsureAdminAccess`)**:
+   - Авторизация через сессию Laravel Sanctum с флагом `is_admin: true`.
+   - Поддержка сервисных API-ключей в заголовках `X-Admin-Key` / `X-API-Key` с защитой от атак по времени через `hash_equals()`.
+2. **Сквозная трассировка (`AssignRequestId`)**:
+   - Каждому входящему запросу присваивается уникальный `X-Request-ID` (Correlation ID), прокидываемый в контекст логов и возвращаемый в ответах.
+3. **Healthcheck & Readiness Probes (`HealthController`)**:
+   - `GET /api/health` — быстрая liveness-проверка сервиса.
+   - `GET /api/health/ready` (или `?deep=1`) — глубокая диагностика готовности подсистем (задержка БД в миллисекундах, объем очереди задач, доступное дисковое пространство, статус пула прокси).
+4. **Защита от перегрузок (Rate Limiting)**:
+   - Лимит авторизации: до 5 попыток в минуту.
+   - Лимит запуска синхронизаций: до 10 запросов в минуту.
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+---
 
-## Laravel Sponsors
+## 💻 Консольные команды (Artisan CLI)
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+Сервис предоставляет набор консольных утилит для DevOps, администрирования и отладки:
 
-### Premium Partners
+```bash
+# Добавление прокси в пул ротации (поддерживаются форматы с аутентификацией)
+php artisan proxy:add http://user:pass@192.168.1.1:8080
+php artisan proxy:add 192.168.1.1:8080:user:pass
+php artisan proxy:add 192.168.1.1:8080@user:pass
+php artisan proxy:add socks5://user:pass@185.123.45.67:1080
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+# Просмотр текущего состояния пула прокси (статусы, карантин, статистика)
+php artisan proxy:list
 
-## Contributing
+# Выгрузка полного изолированного JSON-слепка организации (с отзывами и снимками)
+php artisan reviews:dump 1 --output=storage/app/dumps/org_1.json --limit-reviews=100
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+# Автоматическая ротация устаревших снимков репутации (поддержка dry-run)
+php artisan reviews:prune-snapshots --days=90 --dry-run
+php artisan reviews:prune-snapshots --days=90
+```
 
-## Code of Conduct
+---
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+## 📡 Основные маршруты REST API
 
-## Security Vulnerabilities
+| Метод | Эндпоинт | Доступ | Описание |
+|---|---|---|---|
+| `GET` | `/api/health` | Публичный | Быстрая liveness-проверка сервиса |
+| `GET` | `/api/health/ready` | Публичный | Глубокая readiness-диагностика подсистем |
+| `POST` | `/api/auth/login` | Публичный | Вход в систему (выпуск Bearer токена) |
+| `GET` | `/api/auth/user` | Sanctum | Данные текущего пользователя и права |
+| `POST` | `/api/auth/logout` | Sanctum | Выход из системы (отзыв токенов) |
+| `GET` | `/api/organizations` | Sanctum | Список всех подключенных организаций |
+| `POST` | `/api/organizations` | Sanctum | Подключение карточки по ссылке или ID |
+| `GET` | `/api/organizations/{id}` | Sanctum | Детальная информация об организации |
+| `GET` | `/api/organizations/{id}/status` | Sanctum | Статус и процент фоновой синхронизации |
+| `POST` | `/api/organizations/{id}/sync` | Sanctum | Запуск повторной синхронизации |
+| `GET` | `/api/organizations/{id}/reviews` | Sanctum | Список отзывов (по 50 на стр., фильтры, сортировка) |
+| `GET` | `/api/organizations/{id}/snapshots` | Sanctum | История снимков рейтинга и притока отзывов |
+| `GET` | `/api/organizations/{id}/export` | Sanctum | Экспорт отзывов в CSV (Excel UTF-8 BOM) |
+| `GET` | `/api/admin/settings` | Admin / API Key | Системные метрики (БД, очереди, прокси) |
+| `GET` | `/api/admin/proxies` | Admin / API Key | Список прокси-серверов в пуле |
+| `POST` | `/api/admin/proxies` | Admin / API Key | Пакетное добавление прокси |
+| `POST` | `/api/admin/proxies/{id}/toggle` | Admin / API Key | Включение / отключение прокси |
+| `DELETE` | `/api/admin/proxies/{id}` | Admin / API Key | Удаление прокси из пула |
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+---
 
-## License
+## 🛠 Запуск и разработка
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+### Локальная установка:
+
+```bash
+# 1. Установка PHP зависимостей
+composer install
+
+# 2. Настройка переменных окружения
+cp .env.example .env
+php artisan key:generate
+
+# 3. Применение миграций и запуск сидов (создает демо-данные и учетную запись)
+touch database/database.sqlite
+php artisan migrate --seed
+
+# 4. Запуск локального сервера разработки
+php artisan serve
+```
+
+### Запуск фонового воркера очередей:
+
+```bash
+php artisan queue:work --tries=3 --timeout=120
+```
+
+---
+
+## 🧪 Контроль качества и тестирование
+
+В проекте настроен строгий автоматический контроль качества:
+
+```bash
+# Статический анализ максимального уровня строгости (PHPStan Level 8)
+composer phpstan
+
+# Проверка и форматирование кода по стандарту PSR-12 (Laravel Pint)
+composer format:test
+composer format
+
+# Запуск полного набора юнит- и функциональных тестов (PHPUnit)
+php artisan test
+```
+
+> **Статус проверок:**
+> - PHPStan: Level 8 — **0 ошибок** на 44 файлах.
+> - PHPUnit: **72 теста пройдены** (443 assertions).
