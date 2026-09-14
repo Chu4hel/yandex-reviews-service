@@ -210,4 +210,37 @@ class OrganizationApiTest extends TestCase
         $respBoth->assertStatus(200)
             ->assertJsonCount(2, 'data');
     }
+
+    public function test_organization_soft_delete(): void
+    {
+        $org = Organization::create([
+            'yandex_org_id' => '99887766',
+            'name' => 'Организация для удаления',
+            'url' => 'https://yandex.ru/maps/org/99887766/reviews/',
+        ]);
+
+        $response = $this->withHeader('Authorization', 'Bearer '.$this->token)
+            ->deleteJson("/api/organizations/{$org->id}");
+
+        $response->assertStatus(200)
+            ->assertJsonPath('message', 'Организация успешно перемещена в архив');
+
+        $this->assertSoftDeleted('organizations', [
+            'id' => $org->id,
+        ]);
+
+        // Повторный запрос show возвращает 404
+        $showResponse = $this->withHeader('Authorization', 'Bearer '.$this->token)
+            ->getJson("/api/organizations/{$org->id}");
+
+        $showResponse->assertStatus(404);
+
+        // В общем списке удаленная организация отсутствует
+        $listResponse = $this->withHeader('Authorization', 'Bearer '.$this->token)
+            ->getJson('/api/organizations');
+
+        $listResponse->assertStatus(200);
+        $ids = collect($listResponse->json('data'))->pluck('id')->all();
+        $this->assertNotContains($org->id, $ids);
+    }
 }

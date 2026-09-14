@@ -257,6 +257,62 @@ class OrganizationController extends Controller
         $query->orderBy('published_at', 'desc');
 
         $slug = Str::slug($organization->name ?: 'organization');
+        $format = strtolower((string) $request->input('format', 'csv'));
+
+        if ($format === 'json') {
+            $fileName = sprintf('reviews_%s_%s.json', $slug, now()->format('Y-m-d_His'));
+
+            $headers = [
+                'Content-Type' => 'application/json; charset=UTF-8',
+                'Content-Disposition' => "attachment; filename=\"{$fileName}\"",
+                'Pragma' => 'no-cache',
+                'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
+                'Expires' => '0',
+            ];
+
+            return response()->stream(function () use ($query) {
+                $handle = fopen('php://output', 'w');
+                if ($handle === false) {
+                    return;
+                }
+
+                fwrite($handle, "[\n");
+                $isFirst = true;
+
+                $query->chunk(200, function ($reviews) use ($handle, &$isFirst) {
+                    foreach ($reviews as $review) {
+                        if (! $isFirst) {
+                            fwrite($handle, ",\n");
+                        }
+                        $isFirst = false;
+
+                        $item = [
+                            'id' => $review->id,
+                            'yandex_review_id' => $review->yandex_review_id,
+                            'author_name' => $review->author_name ?? 'Пользователь',
+                            'author_avatar_url' => $review->author_avatar_url,
+                            'author_level' => $review->author_level,
+                            'rating' => $review->rating,
+                            'text' => $review->text,
+                            'published_at' => $review->published_at ? $review->published_at->toIso8601String() : null,
+                            'business_response' => ! empty($review->business_response_text) ? [
+                                'text' => $review->business_response_text,
+                                'responded_at' => $review->business_response_at ? $review->business_response_at->toIso8601String() : null,
+                            ] : null,
+                        ];
+
+                        $json = json_encode($item, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                        if ($json !== false) {
+                            fwrite($handle, '  '.$json);
+                        }
+                    }
+                });
+
+                fwrite($handle, "\n]\n");
+                fclose($handle);
+            }, 200, $headers);
+        }
+
         $fileName = sprintf('reviews_%s_%s.csv', $slug, now()->format('Y-m-d_His'));
 
         $headers = [
@@ -308,5 +364,17 @@ class OrganizationController extends Controller
 
             fclose($handle);
         }, 200, $headers);
+    }
+
+    /**
+     * Удалить организацию (мягкое удаление в архив).
+     */
+    public function destroy(Organization $organization): JsonResponse
+    {
+        $organization->delete();
+
+        return response()->json([
+            'message' => 'Организация успешно перемещена в архив',
+        ]);
     }
 }

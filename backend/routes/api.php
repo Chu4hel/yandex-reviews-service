@@ -31,6 +31,7 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->prefix('organizations')->gr
     Route::get('/{organization}/reviews', [OrganizationController::class, 'reviews']);
     Route::get('/{organization}/snapshots', [OrganizationController::class, 'snapshots']);
     Route::get('/{organization}/export', [OrganizationController::class, 'export']);
+    Route::delete('/{organization}', [OrganizationController::class, 'destroy']);
 });
 
 // Административный контур (сессия администратора либо заголовок X-Admin-Key)
