@@ -20,7 +20,7 @@ jobs:
         with:
           php-version: '8.2'
           extensions: mbstring, xml, ctype, iconv, intl, pdo, pdo_sqlite, bcmath, curl
-          coverage: none
+          coverage: pcov
 
       - name: Cache Composer Dependencies
         uses: actions/cache@v4
@@ -45,20 +45,20 @@ jobs:
       - name: Check Code Style (Laravel Pint)
         run: |
           cd backend
-          ./vendor/bin/pint --test
+          composer format:test
 
-      - name: Static Analysis (PHPStan / Larastan Level 6)
+      - name: Static Analysis (PHPStan / Larastan Level 8)
         run: |
           cd backend
-          ./vendor/bin/phpstan analyse
+          composer phpstan
 
-      - name: Run Tests (PHPUnit)
+      - name: Run Tests with Code Coverage (PHPUnit)
         run: |
           cd backend
-          php artisan test
+          php artisan test --coverage-text
 
   frontend-qa:
-    name: Frontend QA (Vue 3 / TypeScript / ESLint)
+    name: Frontend QA (Vue 3 / TypeScript / ESLint / Vitest)
     runs-on: ubuntu-latest
 
     steps:
