@@ -22,15 +22,46 @@ api.interceptors.request.use((config) => {
   return config
 })
 
-// Response interceptor to handle unauthenticated requests
+let lastRequestId: string | null = null
+
+export const getLastRequestId = (): string | null => lastRequestId
+
+export const extractRequestId = (error: unknown): string | undefined => {
+  if (axios.isAxiosError(error)) {
+    const headerId = error.response?.headers?.['x-request-id']
+    if (typeof headerId === 'string' && headerId !== '') {
+      return headerId
+    }
+    const bodyId = (error.response?.data as { request_id?: string } | undefined)?.request_id
+    if (typeof bodyId === 'string' && bodyId !== '') {
+      return bodyId
+    }
+  }
+  return lastRequestId ?? undefined
+}
+
+// Response interceptor to handle unauthenticated requests and track X-Request-ID
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const reqId = response.headers?.['x-request-id']
+    if (typeof reqId === 'string' && reqId !== '') {
+      lastRequestId = reqId
+    }
+    return response
+  },
   (error: unknown) => {
-    if (axios.isAxiosError(error) && error.response?.status === 401) {
-      localStorage.removeItem('auth_token')
-      localStorage.removeItem('auth_user')
-      if (window.location.pathname !== '/login') {
-        window.location.href = '/login'
+    if (axios.isAxiosError(error)) {
+      const headerId = error.response?.headers?.['x-request-id']
+      if (typeof headerId === 'string' && headerId !== '') {
+        lastRequestId = headerId
+      }
+
+      if (error.response?.status === 401) {
+        localStorage.removeItem('auth_token')
+        localStorage.removeItem('auth_user')
+        if (window.location.pathname !== '/login') {
+          window.location.href = '/login'
+        }
       }
     }
     return Promise.reject(error)
