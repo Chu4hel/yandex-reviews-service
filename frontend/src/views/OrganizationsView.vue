@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, RouterLink } from 'vue-router'
 import axios from 'axios'
 import { useOrganizationsStore } from '@/stores/organizations'
 import { useNotificationStore } from '@/stores/notification'
@@ -162,11 +162,24 @@ onUnmounted(() => {
 <template>
   <div class="space-y-8">
     <!-- Header -->
-    <div>
-      <h2 class="text-2xl font-bold text-slate-900 dark:text-white">Настройки и подключение организаций</h2>
-      <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
-        Укажите ссылку на карточку Яндекс.Карт для запуска парсинга отзывов, рейтинга и счетчиков
-      </p>
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div>
+        <h2 class="text-2xl font-bold text-slate-900 dark:text-white">Настройки и подключение организаций</h2>
+        <p class="text-sm text-slate-500 dark:text-slate-400 mt-1">
+          Укажите ссылку на карточку Яндекс.Карт для запуска парсинга отзывов, рейтинга и счетчиков
+        </p>
+      </div>
+
+      <RouterLink
+        to="/admin"
+        class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-700/80 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-100 text-xs font-semibold transition border border-slate-200/80 dark:border-slate-600 shadow-xs cursor-pointer self-start sm:self-auto"
+      >
+        <svg class="w-4 h-4 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+        </svg>
+        <span>Управление пулом прокси</span>
+        <span class="text-slate-400">&rarr;</span>
+      </RouterLink>
     </div>
 
     <!-- Connection Card -->

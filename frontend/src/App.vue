@@ -52,7 +52,7 @@ const handleLogout = async (): Promise<void> => {
             to="/admin"
             class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition"
             :class="
-              $route.path === '/admin'
+              $route.path === '/admin' || $route.path === '/proxies'
                 ? 'bg-red-50 dark:bg-red-950/50 text-red-600 dark:text-red-400 font-bold'
                 : 'text-slate-600 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400'
             "
@@ -60,7 +60,7 @@ const handleLogout = async (): Promise<void> => {
             <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
             </svg>
-            Админ-панель
+            Прокси и Админка
           </RouterLink>
         </nav>
 

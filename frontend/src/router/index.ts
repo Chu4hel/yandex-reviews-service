@@ -28,6 +28,7 @@ const routes: RouteRecordRaw[] = [
   },
   {
     path: '/admin',
+    alias: '/proxies',
     name: 'admin',
     component: () => import('@/views/AdminView.vue'),
     meta: { requiresAuth: true, requiresAdmin: true },
