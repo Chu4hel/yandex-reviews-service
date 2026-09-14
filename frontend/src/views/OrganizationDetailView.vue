@@ -15,6 +15,7 @@ import type { OrganizationSnapshot } from '@/types/snapshot'
 import RatingStars from '@/components/RatingStars.vue'
 import ReviewCard from '@/components/ReviewCard.vue'
 import Pagination from '@/components/Pagination.vue'
+import ReputationTrendChart from '@/components/ReputationTrendChart.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -469,55 +470,60 @@ onUnmounted(() => {
       </div>
 
       <!-- TAB 2: SNAPSHOTS HISTORY -->
-      <div v-else-if="activeTab === 'snapshots'" class="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200/80 dark:border-slate-700 shadow-sm">
-        <h3 class="text-base font-bold text-slate-900 dark:text-white mb-2">История снимков синхронизации (было → стало)</h3>
-        <p class="text-xs text-slate-500 dark:text-slate-400 mb-6">
-          Фиксация изменений между циклами парсинга: динамика рейтинга, прирост оценок и добавление новых отзывов.
-        </p>
+      <div v-else-if="activeTab === 'snapshots'" class="space-y-6">
+        <!-- Visual Reputation Trend Chart -->
+        <ReputationTrendChart v-if="snapshots.length > 0" :snapshots="snapshots" />
 
-        <div v-if="snapshots.length === 0" class="text-center py-8 text-slate-400 text-sm">
-          История снимков пока пуста. При повторной синхронизации здесь отобразится динамика изменений.
-        </div>
+        <div class="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200/80 dark:border-slate-700 shadow-sm">
+          <h3 class="text-base font-bold text-slate-900 dark:text-white mb-2">История снимков синхронизации (было → стало)</h3>
+          <p class="text-xs text-slate-500 dark:text-slate-400 mb-6">
+            Фиксация изменений между циклами парсинга: динамика рейтинга, прирост оценок и добавление новых отзывов.
+          </p>
 
-        <div v-else class="overflow-x-auto">
-          <table class="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr class="border-b border-slate-200 dark:border-slate-700 text-slate-400 uppercase font-semibold">
-                <th class="py-3 px-3">Дата снимка</th>
-                <th class="py-3 px-3">Рейтинг (было → стало)</th>
-                <th class="py-3 px-3">Оценок (было → стало)</th>
-                <th class="py-3 px-3">Отзывов (было → стало)</th>
-                <th class="py-3 px-3">Новых добавлено</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
-              <tr v-for="snap in snapshots" :key="snap.id" class="hover:bg-slate-50/50 dark:hover:bg-slate-700/30">
-                <td class="py-3 px-3 font-medium text-slate-700 dark:text-slate-300">
-                  {{ formatDate(snap.snapshot_at) }}
-                </td>
-                <td class="py-3 px-3 font-semibold">
-                  <span class="text-slate-400">{{ snap.rating_before ?? '—' }}</span>
-                  <span class="mx-1.5 text-slate-300">&rarr;</span>
-                  <span class="text-amber-500 font-bold">{{ snap.rating_after ?? '—' }} ★</span>
-                </td>
-                <td class="py-3 px-3 font-semibold">
-                  <span class="text-slate-400">{{ snap.ratings_count_before?.toLocaleString('ru-RU') ?? '—' }}</span>
-                  <span class="mx-1.5 text-slate-300">&rarr;</span>
-                  <span class="text-slate-900 dark:text-white font-bold">{{ snap.ratings_count_after?.toLocaleString('ru-RU') ?? '—' }}</span>
-                </td>
-                <td class="py-3 px-3 font-semibold">
-                  <span class="text-slate-400">{{ snap.reviews_count_before?.toLocaleString('ru-RU') ?? '—' }}</span>
-                  <span class="mx-1.5 text-slate-300">&rarr;</span>
-                  <span class="text-slate-900 dark:text-white font-bold">{{ snap.reviews_count_after?.toLocaleString('ru-RU') ?? '—' }}</span>
-                </td>
-                <td class="py-3 px-3">
-                  <span class="inline-flex px-2 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
-                    +{{ snap.new_reviews_added }}
-                  </span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+          <div v-if="snapshots.length === 0" class="text-center py-8 text-slate-400 text-sm">
+            История снимков пока пуста. При повторной синхронизации здесь отобразится динамика изменений.
+          </div>
+
+          <div v-else class="overflow-x-auto">
+            <table class="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr class="border-b border-slate-200 dark:border-slate-700 text-slate-400 uppercase font-semibold">
+                  <th class="py-3 px-3">Дата снимка</th>
+                  <th class="py-3 px-3">Рейтинг (было → стало)</th>
+                  <th class="py-3 px-3">Оценок (было → стало)</th>
+                  <th class="py-3 px-3">Отзывов (было → стало)</th>
+                  <th class="py-3 px-3">Новых добавлено</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 dark:divide-slate-700">
+                <tr v-for="snap in snapshots" :key="snap.id" class="hover:bg-slate-50/50 dark:hover:bg-slate-700/30">
+                  <td class="py-3 px-3 font-medium text-slate-700 dark:text-slate-300">
+                    {{ formatDate(snap.snapshot_at) }}
+                  </td>
+                  <td class="py-3 px-3 font-semibold">
+                    <span class="text-slate-400">{{ snap.rating_before ?? '—' }}</span>
+                    <span class="mx-1.5 text-slate-300">&rarr;</span>
+                    <span class="text-amber-500 font-bold">{{ snap.rating_after ?? '—' }} ★</span>
+                  </td>
+                  <td class="py-3 px-3 font-semibold">
+                    <span class="text-slate-400">{{ snap.ratings_count_before?.toLocaleString('ru-RU') ?? '—' }}</span>
+                    <span class="mx-1.5 text-slate-300">&rarr;</span>
+                    <span class="text-slate-900 dark:text-white font-bold">{{ snap.ratings_count_after?.toLocaleString('ru-RU') ?? '—' }}</span>
+                  </td>
+                  <td class="py-3 px-3 font-semibold">
+                    <span class="text-slate-400">{{ snap.reviews_count_before?.toLocaleString('ru-RU') ?? '—' }}</span>
+                    <span class="mx-1.5 text-slate-300">&rarr;</span>
+                    <span class="text-slate-900 dark:text-white font-bold">{{ snap.reviews_count_after?.toLocaleString('ru-RU') ?? '—' }}</span>
+                  </td>
+                  <td class="py-3 px-3">
+                    <span class="inline-flex px-2 py-0.5 rounded-full font-bold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                      +{{ snap.new_reviews_added }}
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </template>
