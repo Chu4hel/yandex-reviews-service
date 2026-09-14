@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import axios from 'axios'
 import {
@@ -32,6 +32,13 @@ const orgStore = useOrganizationsStore()
 const orgId = Number(route.params.id)
 
 const organization = ref<Organization | null>(null)
+const isDemoOrg = computed<boolean>(() => {
+  if (!organization.value) return false
+  return (
+    organization.value.name.includes('Демо') ||
+    organization.value.yandex_org_id === '67037665858'
+  )
+})
 const isDeleteModalOpen = ref<boolean>(false)
 const isDeleting = ref<boolean>(false)
 const reviews = ref<Review[]>([])
@@ -343,13 +350,44 @@ onUnmounted(() => {
     </div>
 
     <template v-else-if="organization">
+      <!-- Demo Organization Notice Banner -->
+      <div
+        v-if="isDemoOrg"
+        class="p-4 rounded-2xl bg-purple-50 dark:bg-purple-950/40 border border-purple-200 dark:border-purple-800/80 shadow-xs flex items-start gap-3.5 text-xs text-purple-900 dark:text-purple-200 mb-6"
+      >
+        <span class="text-2xl shrink-0">🎯</span>
+        <div class="space-y-1">
+          <div class="flex items-center gap-2 flex-wrap">
+            <h3 class="text-sm font-bold text-purple-950 dark:text-purple-100">
+              Демонстрационная тестовая организация (сидер базы данных)
+            </h3>
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-200/80 dark:bg-purple-800 text-purple-900 dark:text-purple-100">
+              Тестовый стенд
+            </span>
+          </div>
+          <p class="leading-relaxed text-slate-600 dark:text-slate-300">
+            Эта карточка создана автоматически сидером с предзагруженными 55 отзывами, чтобы можно было сразу оценить пагинацию по 50 отзывов на страницу, фильтры по всем оценкам (1–5★), полнотекстовый поиск и ответы бизнеса без ожидания скрейпинга.
+          </p>
+          <p class="text-purple-700 dark:text-purple-300 font-medium pt-0.5">
+            💡 Нажмите кнопку <strong>«Обновить отзывы»</strong> выше, чтобы запросить реальные данные с Яндекс.Карт, либо подключите любую другую организацию по ссылке на главной странице.
+          </p>
+        </div>
+      </div>
+
       <!-- Organization Header Card -->
       <div class="bg-white dark:bg-slate-800 rounded-2xl p-6 sm:p-8 border border-slate-200/80 dark:border-slate-700 shadow-sm">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-100 dark:border-slate-700">
           <div>
-            <div class="flex items-center gap-2 mb-1">
+            <div class="flex items-center gap-2 mb-1 flex-wrap">
               <span class="text-xs px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-700 font-mono text-slate-600 dark:text-slate-300">
                 ID: {{ organization.yandex_org_id }}
+              </span>
+              <span
+                v-if="isDemoOrg"
+                class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300"
+                title="Организация создана сидером базы данных для демонстрации возможностей"
+              >
+                🎯 Демо-стенд
               </span>
               <span
                 v-if="organization.sync_status === 'syncing'"

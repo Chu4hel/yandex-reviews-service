@@ -291,9 +291,20 @@ onUnmounted(() => {
           <div>
             <!-- Header & Badge -->
             <div class="flex items-start justify-between gap-2 mb-3">
-              <h4 class="font-bold text-base text-slate-900 dark:text-white leading-tight">
-                {{ org.name }}
-              </h4>
+              <div class="flex flex-col gap-1">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <h4 class="font-bold text-base text-slate-900 dark:text-white leading-tight">
+                    {{ org.name }}
+                  </h4>
+                  <span
+                    v-if="org.name.includes('Демо') || org.yandex_org_id === '67037665858'"
+                    class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 shrink-0"
+                    title="Демонстрационная тестовая организация"
+                  >
+                    🎯 Демо-стенд
+                  </span>
+                </div>
+              </div>
               <!-- Status Badge -->
               <span
                 v-if="org.sync_status === 'syncing'"
