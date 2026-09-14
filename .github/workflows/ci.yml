@@ -29,17 +29,18 @@ jobs:
           key: ${{ runner.os }}-composer-${{ hashFiles('backend/composer.lock') }}
           restore-keys: ${{ runner.os }}-composer-
 
-      - name: Install Dependencies
-        run: |
-          cd backend
-          composer install --no-interaction --prefer-dist --optimize-autoloader
-
       - name: Setup Environment
         run: |
           cd backend
           cp .env.example .env
-          php artisan key:generate
+          mkdir -p database storage/framework/{sessions,views,cache} storage/logs
           touch database/database.sqlite
+
+      - name: Install Dependencies
+        run: |
+          cd backend
+          composer install --no-interaction --prefer-dist --optimize-autoloader
+          php artisan key:generate
           php artisan migrate --force
 
       - name: Check Code Style (Laravel Pint)

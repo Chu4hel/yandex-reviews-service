@@ -27,7 +27,9 @@ COPY backend ./
 COPY docker/entrypoint-backend.sh /usr/local/bin/entrypoint-backend.sh
 RUN chmod +x /usr/local/bin/entrypoint-backend.sh
 
-RUN composer run-script post-autoload-dump
+RUN mkdir -p database storage/framework/sessions storage/framework/views storage/framework/cache storage/logs && \
+    touch database/database.sqlite && \
+    composer run-script post-autoload-dump
 
 EXPOSE 8000
 

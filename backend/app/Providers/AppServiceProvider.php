@@ -46,14 +46,30 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Автоматическое создание файла SQLite базы данных, если он отсутствует (CI, composer install, package:discover)
+        if (config('database.default') === 'sqlite') {
+            $dbPath = (string) config('database.connections.sqlite.database');
+            if ($dbPath !== '' && $dbPath !== ':memory:' && ! file_exists($dbPath)) {
+                $dir = dirname($dbPath);
+                if (! is_dir($dir)) {
+                    @mkdir($dir, 0755, true);
+                }
+                @touch($dbPath);
+            }
+        }
+
         // Регистрация корректной UTF-8 функции lower() для SQLite базы данных (кириллический поиск)
         Event::listen(ConnectionEstablished::class, function (ConnectionEstablished $event): void {
             if ($event->connection instanceof SQLiteConnection) {
-                $event->connection->getPdo()->sqliteCreateFunction(
-                    'lower',
-                    fn (?string $s): ?string => $s !== null ? mb_strtolower($s, 'UTF-8') : null,
-                    1
-                );
+                try {
+                    $event->connection->getPdo()->sqliteCreateFunction(
+                        'lower',
+                        fn (?string $s): ?string => $s !== null ? mb_strtolower($s, 'UTF-8') : null,
+                        1
+                    );
+                } catch (\Throwable) {
+                    // База данных еще не инициализирована или идет процесс package:discover
+                }
             }
         });
         RateLimiter::for('api', function (Request $request) {
