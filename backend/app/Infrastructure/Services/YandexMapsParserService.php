@@ -19,7 +19,7 @@ use Illuminate\Support\Facades\Log;
 class YandexMapsParserService implements YandexParserInterface
 {
     /**
-     * Pool of realistic browser User-Agents for header rotation.
+     * Пул браузерных User-Agent для ротации цифрового отпечатка.
      *
      * @var array<int, string>
      */
@@ -38,25 +38,25 @@ class YandexMapsParserService implements YandexParserInterface
     {
         $input = trim($input);
 
-        // If numeric ID entered
+        // Прямой ввод числового идентификатора карточки
         if (preg_match('/^\d+$/', $input)) {
             return "https://yandex.ru/maps/org/{$input}/reviews/";
         }
 
-        // If short link, follow redirect to resolve real URL
+        // Разрешение коротких ссылок через следование по редиректам
         if (str_contains($input, 'maps.app.goo.gl') || str_contains($input, '/maps/-/')) {
             $input = $this->resolveRedirectUrl($input);
         }
 
-        // Check if URL has query parameters with oid=
+        // Извлечение идентификатора из query-параметра oid
         if (preg_match('/[?&]oid=(\d+)/', $input, $matches)) {
             return "https://yandex.ru/maps/org/{$matches[1]}/reviews/";
         }
 
-        // Normalize base Yandex maps URL
+        // Нормализация базового URL Яндекс.Карт
         if (preg_match('/https?:\/\/(?:www\.)?(?:yandex\.[a-z]+|maps\.yandex\.[a-z]+)\/maps\/org\/(?:[^\/]+\/)?(\d+)/i', $input, $matches)) {
             $orgId = $matches[1];
-            // Extract slug if present
+            // Сохранение человекопонятного слага при наличии
             if (preg_match('/\/maps\/org\/([a-zA-Z0-9_-]+)\/\d+/i', $input, $slugMatch)) {
                 $slug = $slugMatch[1];
 
@@ -104,7 +104,7 @@ class YandexMapsParserService implements YandexParserInterface
         $ratingsCount = (int) ($ratingData['ratingCount'] ?? 0);
         $reviewsCount = (int) ($ratingData['reviewCount'] ?? 0);
 
-        // Parse initial batch of reviews from the first page
+        // Парсинг первой страницы отзывов
         $reviews = [];
         $totalPages = 1;
         if (isset($item['reviewResults'])) {
@@ -165,7 +165,7 @@ class YandexMapsParserService implements YandexParserInterface
     }
 
     /**
-     * Fetch HTML page from Yandex Maps and decode JSON state-view.
+     * Загрузка HTML страницы Яндекс.Карт и декодирование встроенного JSON состояния state-view.
      *
      * @return array<string, mixed>
      *
@@ -225,7 +225,7 @@ class YandexMapsParserService implements YandexParserInterface
         $durationMs = (int) round((microtime(true) - $startTime) * 1000);
         $html = $response->body();
 
-        // 1. Detect Captcha / Bot protection
+        // 1. Детекция SmartCaptcha и антибот-проверок
         if (str_contains($html, 'captcha-page') || str_contains($html, 'smartcaptcha') || str_contains($html, 'showcaptcha')) {
             if ($this->proxyRotator !== null && $proxy !== null) {
                 $this->proxyRotator->markCaptcha($proxy->id, 30);
@@ -242,7 +242,7 @@ class YandexMapsParserService implements YandexParserInterface
             throw new YandexCaptchaDetectedException;
         }
 
-        // 2. Extract state-view JSON
+        // 2. Извлечение серверного блока состояния state-view
         if (! preg_match('/<script type="application\/json" class="state-view">(.*?)<\/script>/s', $html, $matches)) {
             Log::error('YandexMapsParser: тег state-view не найден в ответе (возможна смена разметки)', [
                 'target_url' => $targetUrl,
@@ -282,7 +282,7 @@ class YandexMapsParserService implements YandexParserInterface
     }
 
     /**
-     * Extract organization item from state-view.
+     * Извлечение структуры данных организации из дерева состояния.
      *
      * @param  array<string, mixed>  $data
      * @return array<string, mixed>
@@ -310,7 +310,7 @@ class YandexMapsParserService implements YandexParserInterface
     }
 
     /**
-     * Map raw review array to ParsedReviewDto.
+     * Преобразование сырых данных отзыва в типизированный DTO.
      *
      * @param  array<string, mixed>  $raw
      */
@@ -333,7 +333,7 @@ class YandexMapsParserService implements YandexParserInterface
     }
 
     /**
-     * Resolve short link redirect to final URL.
+     * Разрешение короткой ссылки в конечный URL.
      */
     protected function resolveRedirectUrl(string $url): string
     {

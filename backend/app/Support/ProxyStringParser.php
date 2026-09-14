@@ -7,15 +7,15 @@ namespace App\Support;
 class ProxyStringParser
 {
     /**
-     * Parse various proxy connection string formats into structured components.
+     * Разбор различных форматов строк подключения прокси в структурированный массив.
      *
-     * Supported formats:
-     * - ip:port (e.g. 192.168.1.1:8080)
-     * - protocol://ip:port (e.g. socks5://192.168.1.1:1080)
-     * - ip:port:login:password (e.g. 192.168.1.1:8080:user:pass)
-     * - ip:port@login:password (e.g. 192.168.1.1:8080@user:pass)
-     * - login:password@ip:port (e.g. user:pass@192.168.1.1:8080)
-     * - protocol://login:password@ip:port (standard RFC 3986 URI)
+     * Поддерживаемые форматы:
+     * - ip:port (напр., 192.168.1.1:8080)
+     * - protocol://ip:port (напр., socks5://192.168.1.1:1080)
+     * - ip:port:login:password (напр., 192.168.1.1:8080:user:pass)
+     * - ip:port@login:password (напр., 192.168.1.1:8080@user:pass)
+     * - login:password@ip:port (напр., user:pass@192.168.1.1:8080)
+     * - protocol://login:password@ip:port (стандартный RFC 3986 URI)
      * - protocol://ip:port:login:password
      * - protocol://ip:port@login:password
      * - login:password:ip:port
@@ -29,16 +29,16 @@ class ProxyStringParser
             return null;
         }
 
-        // 1. Extract protocol if present (e.g. http://, socks5://, https://)
+        // 1. Извлечение протокола при наличии (http://, socks5://, https://)
         $protocol = 'http';
         if (preg_match('/^([a-zA-Z0-9_+]+):\/\/(.*)$/', $input, $matches)) {
             $protocol = strtolower($matches[1]);
             $input = $matches[2];
         }
 
-        // 2. Handle '@' notation
+        // 2. Обработка форматов с разделителем '@'
         if (str_contains($input, '@')) {
-            // Check reverse notation: host:port@user:password
+            // Формат host:port@user:password
             if (preg_match('/^([a-zA-Z0-9.-]+):(\d{1,5})@(.+)$/', $input, $matches)) {
                 $host = $matches[1];
                 $port = (int) $matches[2];
@@ -48,7 +48,7 @@ class ProxyStringParser
                 return self::formatResult($protocol, $host, $port, $user, $pass);
             }
 
-            // Standard notation: user:password@host:port
+            // Стандартный формат user:password@host:port
             if (preg_match('/^(.+)@([a-zA-Z0-9.-]+):(\d{1,5})$/', $input, $matches)) {
                 $auth = $matches[1];
                 $host = $matches[2];
@@ -59,12 +59,12 @@ class ProxyStringParser
             }
         }
 
-        // 3. Handle colon-delimited parts
+        // 3. Обработка сегментов, разделенных двоеточием
         $parts = explode(':', $input);
 
-        // 4+ parts: host:port:user:password OR user:password:host:port
+        // 4+ частей: host:port:user:password ЛИБО user:password:host:port
         if (count($parts) >= 4) {
-            // Case A: host:port:user:password
+            // Вариант A: host:port:user:password
             if (is_numeric($parts[1]) && (int) $parts[1] >= 1 && (int) $parts[1] <= 65535) {
                 $host = $parts[0];
                 $port = (int) $parts[1];
@@ -74,7 +74,7 @@ class ProxyStringParser
                 return self::formatResult($protocol, $host, $port, $user, $pass);
             }
 
-            // Case B: user:password:host:port
+            // Вариант B: user:password:host:port
             $lastIndex = count($parts) - 1;
             if (is_numeric($parts[$lastIndex]) && (int) $parts[$lastIndex] >= 1 && (int) $parts[$lastIndex] <= 65535) {
                 $port = (int) $parts[$lastIndex];
@@ -86,17 +86,17 @@ class ProxyStringParser
             }
         }
 
-        // 3 parts: host:port:user
+        // 3 части: host:port:user
         if (count($parts) === 3 && is_numeric($parts[1]) && (int) $parts[1] >= 1 && (int) $parts[1] <= 65535) {
             return self::formatResult($protocol, $parts[0], (int) $parts[1], $parts[2], null);
         }
 
-        // 2 parts: host:port
+        // 2 части: host:port
         if (count($parts) === 2 && is_numeric($parts[1]) && (int) $parts[1] >= 1 && (int) $parts[1] <= 65535) {
             return self::formatResult($protocol, $parts[0], (int) $parts[1], null, null);
         }
 
-        // Fallback: parse_url
+        // Резервный разбор через parse_url
         $parsed = parse_url("{$protocol}://{$input}");
         if ($parsed !== false && ! empty($parsed['host']) && ! empty($parsed['port'])) {
             return self::formatResult(
@@ -112,7 +112,7 @@ class ProxyStringParser
     }
 
     /**
-     * Validate and structure final proxy array.
+     * Валидация и сборка результирующего массива параметров прокси.
      *
      * @return array{protocol: string, host: string, port: int, username: string|null, password: string|null}|null
      */

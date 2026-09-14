@@ -11,16 +11,16 @@ use Symfony\Component\HttpFoundation\Response;
 class EnsureAdminAccess
 {
     /**
-     * Handle an incoming request.
-     * Allows access if:
-     * 1. Valid service admin API key provided via 'X-Admin-Key' or 'X-API-Key' header.
-     * 2. Or authenticated user via Sanctum has is_admin === true.
+     * Проверка прав доступа к административному контуру.
+     * Разрешает доступ, если:
+     * 1. Передан валидный сервисный ключ через 'X-Admin-Key' или 'X-API-Key' (защита от timing-атак via hash_equals).
+     * 2. Либо авторизованный через Sanctum пользователь имеет роль администратора (is_admin === true).
      *
      * @param  Closure(Request): (Response)  $next
      */
     public function handle(Request $request, Closure $next): Response
     {
-        // 1. Check Service API Key
+        // 1. Проверка сервисного API-ключа
         $configuredKey = (string) config('services.admin.api_key', '');
         $providedKey = $request->header('X-Admin-Key')
             ?? $request->header('X-API-Key')
@@ -30,7 +30,7 @@ class EnsureAdminAccess
             return $next($request);
         }
 
-        // 2. Check authenticated User with is_admin role
+        // 2. Проверка сессии администратора
         $user = $request->user('sanctum');
         if ($user !== null && $user->is_admin === true) {
             return $next($request);

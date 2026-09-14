@@ -7,8 +7,8 @@ namespace App\Support;
 class ContentSanitizer
 {
     /**
-     * Sanitize single-line plain text strings (names, addresses, levels).
-     * Completely strips HTML tags and non-printable control characters.
+     * Очистка однострочных текстовых полей (имена авторов, статусы, адреса).
+     * Полностью вырезает HTML-теги и непечатаемые управляющие символы.
      */
     public static function sanitizePlainText(?string $input, ?string $default = null): ?string
     {
@@ -16,10 +16,10 @@ class ContentSanitizer
             return $default;
         }
 
-        // Strip all tags
+        // Удаление HTML-тегов
         $cleaned = strip_tags($input);
 
-        // Remove control characters (preserve UTF-8 letters, digits, spaces, punctuation)
+        // Очистка непечатаемых управляющих символов с сохранением UTF-8
         $cleaned = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', (string) $cleaned);
 
         $trimmed = trim((string) $cleaned);
@@ -28,9 +28,9 @@ class ContentSanitizer
     }
 
     /**
-     * Sanitize multiline content such as review bodies and company responses.
-     * Prevents Stored XSS (<script>, <iframe>, event handlers) while preserving
-     * legitimate linebreaks, Russian text, quotes and emojis.
+     * Очистка многострочного контента (тексты отзывов, ответы бизнеса).
+     * Защищает от Stored XSS (<script>, <iframe>, onload/onerror) с сохранением
+     * легитимных переносов строк, русской типографики, кавычек и эмодзи.
      */
     public static function sanitizeText(?string $input): ?string
     {
@@ -38,19 +38,19 @@ class ContentSanitizer
             return null;
         }
 
-        // 1. Remove dangerous active tags including their inner content
+        // 1. Удаление опасных активных тегов вместе с их содержимым
         $cleaned = preg_replace('/<(script|iframe|object|embed|style|link)[^>]*?>.*?<\/\\1>/si', '', $input);
         if ($cleaned === null) {
             $cleaned = $input;
         }
 
-        // 2. Strip any remaining HTML tags
+        // 2. Очистка остальных HTML-тегов
         $cleaned = strip_tags($cleaned);
 
-        // 3. Normalize carriage returns to \n
+        // 3. Нормализация переводов строк к \n
         $cleaned = str_replace(["\r\n", "\r"], "\n", $cleaned);
 
-        // 4. Remove control characters except \t and \n
+        // 4. Удаление битых управляющих символов (кроме табуляций и переносов строк)
         $cleaned = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/u', '', (string) $cleaned);
 
         $trimmed = trim((string) $cleaned);
@@ -59,8 +59,8 @@ class ContentSanitizer
     }
 
     /**
-     * Sanitize URL, strictly ensuring only http or https scheme is allowed.
-     * Protects against javascript:, data: or vbscript: injection in avatar URLs.
+     * Валидация и санитизация URL, разрешая исключительно схемы http:// и https://.
+     * Защищает от XSS-векторов через javascript:, data: или vbscript: в URL аватаров.
      */
     public static function sanitizeUrl(?string $url): ?string
     {
@@ -73,12 +73,12 @@ class ContentSanitizer
             return null;
         }
 
-        // Check for malicious pseudo-protocols
+        // Блокировка опасных псевдопротоколов
         if (preg_match('/^(?:javascript|data|vbscript):/i', $trimmed)) {
             return null;
         }
 
-        // Ensure starts with http:// or https://
+        // Проверка безопасного сетевого протокола http:// или https://
         if (! preg_match('/^https?:\/\//i', $trimmed)) {
             return null;
         }

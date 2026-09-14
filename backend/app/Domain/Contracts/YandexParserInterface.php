@@ -11,26 +11,26 @@ use App\Domain\Exceptions\YandexParserException;
 interface YandexParserInterface
 {
     /**
-     * Parse organization metadata and initial batch of reviews.
+     * Сбор метаданных организации и начального пакета отзывов.
      *
      * @throws YandexParserException
      */
     public function parseOrganization(string $url): ParsedOrganizationDto;
 
     /**
-     * Parse a specific batch/page of reviews (50 reviews per page).
+     * Сбор конкретной страницы отзывов (по 50 отзывов на страницу).
      *
      * @throws YandexParserException
      */
     public function parseReviewsPage(string $url, int $page): ParsedReviewsBatchDto;
 
     /**
-     * Normalize URL or ID into a clean canonical Yandex Maps reviews URL.
+     * Нормализация URL или ID в канонический адрес страницы отзывов на Яндекс.Картах.
      */
     public function normalizeUrl(string $input): string;
 
     /**
-     * Extract Yandex Organization ID from URL or raw input.
+     * Извлечение числового идентификатора организации из URL или произвольной строки.
      */
     public function extractOrgId(string $input): string;
 }

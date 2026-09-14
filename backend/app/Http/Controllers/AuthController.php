@@ -23,7 +23,7 @@ class AuthController extends Controller
             ]);
         }
 
-        // Revoke old tokens if any
+        // Отзыв старых токенов пользователя
         $user->tokens()->delete();
 
         $token = $user->createToken('spa_access_token')->plainTextToken;

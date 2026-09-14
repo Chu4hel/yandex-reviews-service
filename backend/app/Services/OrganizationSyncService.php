@@ -24,7 +24,7 @@ class OrganizationSyncService
     ) {}
 
     /**
-     * Connect an organization by Yandex Maps URL or ID.
+     * Подключение организации по ссылке или ID Яндекс Карт.
      *
      * @throws YandexParserException
      */
@@ -33,7 +33,7 @@ class OrganizationSyncService
         $normalizedUrl = $this->parser->normalizeUrl($inputUrl);
         $orgId = $this->parser->extractOrgId($normalizedUrl);
 
-        // Check if organization already exists in database
+        // Проверка существования организации в локальной базе данных
         $organization = Organization::where('yandex_org_id', $orgId)->first();
 
         if ($organization) {
@@ -41,7 +41,7 @@ class OrganizationSyncService
                 'url' => $normalizedUrl,
             ]);
 
-            // Dispatch background sync if idle
+            // Запуск фоновой синхронизации, если сервис простаивает
             if ($organization->sync_status !== 'syncing') {
                 SyncOrganizationReviewsJob::dispatch($organization->id);
             }
@@ -49,7 +49,7 @@ class OrganizationSyncService
             return $organization;
         }
 
-        // Parse initial metadata and reviews
+        // Первичный сбор метаданных и отзывов организации
         $parsedOrg = $this->parser->parseOrganization($normalizedUrl);
 
         return DB::transaction(function () use ($parsedOrg, $normalizedUrl) {
@@ -66,14 +66,14 @@ class OrganizationSyncService
                 'last_synced_at' => null,
             ]);
 
-            // Save initial reviews
+            // Сохранение первой партии отзывов
             $newCount = 0;
             foreach ($parsedOrg->initialReviews as $reviewDto) {
                 $this->upsertReview($organization->id, $reviewDto);
                 $newCount++;
             }
 
-            // Create initial snapshot
+            // Создание начального снимка репутации
             OrganizationSnapshot::create([
                 'organization_id' => $organization->id,
                 'rating_before' => null,
@@ -87,7 +87,7 @@ class OrganizationSyncService
                 'snapshot_at' => now(),
             ]);
 
-            // Dispatch background job for full reviews sync (up to ~600)
+            // Запуск фоновой задачи для выгрузки всех отзывов (до ~600)
             SyncOrganizationReviewsJob::dispatch($organization->id);
 
             return $organization;
@@ -95,9 +95,9 @@ class OrganizationSyncService
     }
 
     /**
-     * Perform full sync of reviews for an organization.
+     * Полная синхронизация отзывов организации.
      *
-     * @param  int  $maxPages  Maximum pages to fetch (12 pages * 50 = 600 reviews)
+     * @param  int  $maxPages  Максимальное количество страниц для сбора (12 страниц * 50 = 600 отзывов)
      *
      * @throws YandexParserException
      */
@@ -131,7 +131,7 @@ class OrganizationSyncService
         $updatedCount = 0;
 
         try {
-            // 1. Refresh organization metadata first
+            // 1. Первичное обновление метаданных организации
             $parsedOrg = $this->parser->parseOrganization($organization->url);
             $organization->update([
                 'name' => ContentSanitizer::sanitizePlainText($parsedOrg->name, $organization->name),
@@ -155,7 +155,7 @@ class OrganizationSyncService
                 'pages_to_scan' => $totalPagesToScan,
             ]);
 
-            // 2. Fetch pages
+            // 2. Постраничный сбор отзывов
             for ($page = 1; $page <= $totalPagesToScan; $page++) {
                 $pageStart = microtime(true);
                 $batch = $this->parser->parseReviewsPage($organization->url, $page);
@@ -191,11 +191,11 @@ class OrganizationSyncService
                     break;
                 }
 
-                // Respectful pause between requests (300ms) to avoid rate limits
+                // Пауза 300 мс между страницами для предотвращения троттлинга
                 usleep(300000);
             }
 
-            // 3. Create snapshot of changes
+            // 3. Фиксация изменений в снимке репутации
             $snapshot = OrganizationSnapshot::create([
                 'organization_id' => $organization->id,
                 'rating_before' => $ratingBefore,
@@ -259,9 +259,9 @@ class OrganizationSyncService
     }
 
     /**
-     * Idempotently upsert review into database.
+     * Идемпотентное сохранение или обновление отзыва в базе данных.
      *
-     * @return bool True if created, False if updated
+     * @return bool true, если отзыв создан; false, если обновлен
      */
     protected function upsertReview(int $organizationId, ParsedReviewDto $dto): bool
     {

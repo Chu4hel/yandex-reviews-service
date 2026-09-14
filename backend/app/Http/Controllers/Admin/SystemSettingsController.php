@@ -15,7 +15,7 @@ use Illuminate\Support\Facades\DB;
 class SystemSettingsController extends Controller
 {
     /**
-     * Get system-wide operational metrics and settings.
+     * Системные операционные метрики и параметры окружения.
      */
     public function index(): JsonResponse
     {

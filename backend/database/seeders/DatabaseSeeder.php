@@ -19,7 +19,7 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // 1. Seed user for authentication
+        // 1. Создание учетной записи администратора
         $user = User::firstOrCreate(
             ['email' => 'admin@georeviews.local'],
             [
@@ -32,7 +32,7 @@ class DatabaseSeeder extends Seeder
             $user->update(['is_admin' => true]);
         }
 
-        // 2. Seed a demonstration organization
+        // 2. Создание демонстрационной карточки организации
         $org = Organization::firstOrCreate(
             ['yandex_org_id' => '67037665858'],
             [
@@ -48,7 +48,7 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
-        // 3. Seed initial snapshots
+        // 3. Создание начальных снимков репутации
         OrganizationSnapshot::firstOrCreate(
             ['organization_id' => $org->id],
             [
@@ -64,7 +64,7 @@ class DatabaseSeeder extends Seeder
             ]
         );
 
-        // 4. Seed sample reviews if empty
+        // 4. Заполнение демонстрационными отзывами при пустой таблице
         if ($org->reviews()->count() === 0) {
             $sampleReviews = [
                 [

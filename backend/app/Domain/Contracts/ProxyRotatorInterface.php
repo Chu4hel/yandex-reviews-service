@@ -9,23 +9,23 @@ use App\Domain\DTO\ProxyDto;
 interface ProxyRotatorInterface
 {
     /**
-     * Get the next available proxy from the pool according to rotation policy (LRU / Round-Robin).
-     * Returns null if no active proxies are configured or all are in cooldown.
+     * Получить следующий доступный прокси из пула согласно политике ротации (LRU / Round-Robin).
+     * Возвращает null, если активные прокси не настроены или все находятся в режиме карантина.
      */
     public function getNextProxy(): ?ProxyDto;
 
     /**
-     * Mark proxy as successfully used, record duration and reset fails counter.
+     * Зафиксировать успешное использование прокси, сохранить время задержки и сбросить счетчик ошибок.
      */
     public function markSuccess(int $proxyId, int $durationMs = 0): void;
 
     /**
-     * Put proxy into quarantine cooldown (e.g. 30 minutes) due to captcha or rate limit.
+     * Отправить прокси на карантин (cooldown) из-за детекции капчи или превышения лимитов запросов.
      */
     public function markCaptcha(int $proxyId, int $cooldownMinutes = 30): void;
 
     /**
-     * Record a network or HTTP error for the proxy.
+     * Зафиксировать сетевую или HTTP-ошибку соединения через прокси.
      */
     public function markFailed(int $proxyId, string $errorMessage): void;
 }

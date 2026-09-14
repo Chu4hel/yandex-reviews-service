@@ -12,11 +12,11 @@ use Illuminate\Support\Facades\Log;
 class DatabaseProxyRotator implements ProxyRotatorInterface
 {
     /**
-     * Get the next available proxy using LRU (least recently used) policy.
+     * Получение следующего доступного прокси по алгоритму LRU (наименее недавно использованный).
      */
     public function getNextProxy(): ?ProxyDto
     {
-        // Prioritize proxies that haven't been used yet (null last_used_at), then oldest used
+        // Приоритет новым прокси без обращений, затем сортировка по давности использования
         $proxy = ProxyServer::available()
             ->orderByRaw('CASE WHEN last_used_at IS NULL THEN 0 ELSE 1 END, last_used_at ASC')
             ->first();
@@ -33,7 +33,7 @@ class DatabaseProxyRotator implements ProxyRotatorInterface
     }
 
     /**
-     * Mark proxy as successfully used.
+     * Фиксация успешного запроса и обновление скользящей задержки отклика.
      */
     public function markSuccess(int $proxyId, int $durationMs = 0): void
     {
@@ -55,7 +55,7 @@ class DatabaseProxyRotator implements ProxyRotatorInterface
     }
 
     /**
-     * Quarantine proxy upon captcha detection.
+     * Отправка прокси в карантин при обнаружении капчи.
      */
     public function markCaptcha(int $proxyId, int $cooldownMinutes = 30): void
     {
@@ -81,7 +81,7 @@ class DatabaseProxyRotator implements ProxyRotatorInterface
     }
 
     /**
-     * Record a connection or parsing failure for a proxy.
+     * Учет сбоя подключения или ошибки парсинга.
      */
     public function markFailed(int $proxyId, string $errorMessage): void
     {
@@ -96,7 +96,7 @@ class DatabaseProxyRotator implements ProxyRotatorInterface
             'last_error' => mb_substr($errorMessage, 0, 500),
         ];
 
-        // If failed 5 times in a row, put into 15 min cooldown
+        // При 5 ошибках подряд отправляем прокси на 15-минутное охлаждение
         if ($newFails >= 5 && $newFails < 15) {
             $updates['cooldown_until'] = now()->addMinutes(15);
             Log::warning('DatabaseProxyRotator: временный карантин (5 ошибок подряд)', [
@@ -106,7 +106,7 @@ class DatabaseProxyRotator implements ProxyRotatorInterface
                 'fails' => $newFails,
             ]);
         } elseif ($newFails >= 15) {
-            // Deactivate permanently if 15 consecutive failures
+            // При 15 ошибках подряд окончательно деактивируем сервер
             $updates['is_active'] = false;
             Log::error('DatabaseProxyRotator: прокси отключен из-за 15 ошибок подряд', [
                 'proxy_id' => $proxy->id,

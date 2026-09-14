@@ -7,11 +7,11 @@ use App\Http\Controllers\OrganizationController;
 use App\Http\Controllers\ProxyServerController;
 use Illuminate\Support\Facades\Route;
 
-// Health and Readiness probes (Liveness & Deep checks)
+// Мониторинг доступности (Liveness и Readiness проверки)
 Route::get('/health', [HealthController::class, 'check']);
 Route::get('/health/ready', [HealthController::class, 'readiness']);
 
-// Authentication routes
+// Маршруты аутентификации
 Route::prefix('auth')->group(function () {
     Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:login');
 
@@ -21,7 +21,7 @@ Route::prefix('auth')->group(function () {
     });
 });
 
-// Organization and Reviews routes (protected with Sanctum and throttled)
+// Организации и отзывы (защита Sanctum и ограничение частоты запросов)
 Route::middleware(['auth:sanctum', 'throttle:api'])->prefix('organizations')->group(function () {
     Route::get('/', [OrganizationController::class, 'index']);
     Route::post('/', [OrganizationController::class, 'store'])->middleware('throttle:sync-organizations');
@@ -33,19 +33,19 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->prefix('organizations')->gr
     Route::get('/{organization}/export', [OrganizationController::class, 'export']);
 });
 
-// Administrative routes (protected with admin.access: user.is_admin OR X-Admin-Key)
+// Административный контур (сессия администратора либо заголовок X-Admin-Key)
 Route::middleware(['admin.access', 'throttle:api'])->prefix('admin')->group(function () {
-    // Proxies management
+    // Управление пулом прокси
     Route::get('/proxies', [ProxyServerController::class, 'index']);
     Route::post('/proxies', [ProxyServerController::class, 'store']);
     Route::post('/proxies/{proxy}/toggle', [ProxyServerController::class, 'toggle']);
     Route::delete('/proxies/{proxy}', [ProxyServerController::class, 'destroy']);
 
-    // System settings and metrics
+    // Системные настройки и метрики очередей
     Route::get('/settings', [SystemSettingsController::class, 'index']);
 });
 
-// Compatibility alias for proxies
+// Алиас для обратной совместимости внешних интеграций
 Route::middleware(['admin.access', 'throttle:api'])->prefix('proxies')->group(function () {
     Route::get('/', [ProxyServerController::class, 'index']);
     Route::post('/', [ProxyServerController::class, 'store']);

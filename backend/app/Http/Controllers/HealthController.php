@@ -13,11 +13,11 @@ use Illuminate\Support\Facades\Schema;
 class HealthController extends Controller
 {
     /**
-     * General liveness and basic readiness check.
+     * Базовая проверка жизнеспособности сервиса (liveness probe).
      */
     public function check(Request $request): JsonResponse
     {
-        // If deep check requested or ready endpoint
+        // Перенаправление на расширенную диагностику при наличии параметра deep
         if ($request->boolean('deep', false)) {
             return $this->readiness();
         }
@@ -30,8 +30,8 @@ class HealthController extends Controller
     }
 
     /**
-     * Deep readiness probe for Kubernetes, Docker and SRE monitoring.
-     * Evaluates Database, Queue, Disk storage, and Proxy pool availability.
+     * Комплексная проверка готовности сервиса к обработке трафика (readiness probe).
+     * Проверяет состояние базы данных, очереди задач, дискового пространства и пула прокси.
      */
     public function readiness(): JsonResponse
     {
@@ -39,7 +39,7 @@ class HealthController extends Controller
         $overallStatus = 'healthy';
         $httpCode = 200;
 
-        // 1. Database Check
+        // 1. Проверка подключения к базе данных
         $dbStart = microtime(true);
         try {
             DB::connection()->getPdo();
@@ -58,7 +58,7 @@ class HealthController extends Controller
             $httpCode = 503;
         }
 
-        // 2. Queue & Failed Jobs Check
+        // 2. Проверка состояния очереди и сбойных задач
         try {
             $hasJobs = Schema::hasTable('jobs');
             $hasFailed = Schema::hasTable('failed_jobs');
@@ -84,7 +84,7 @@ class HealthController extends Controller
             ];
         }
 
-        // 3. Storage / Disk Space Check
+        // 3. Проверка доступного дискового пространства
         try {
             $storagePath = storage_path();
             $freeBytes = @disk_free_space($storagePath);
@@ -104,7 +104,7 @@ class HealthController extends Controller
             } else {
                 $checks['storage'] = [
                     'status' => 'ok',
-                    'note' => 'Disk statistics not available in this environment',
+                    'note' => 'Статистика диска недоступна в текущем окружении',
                 ];
             }
         } catch (\Throwable $e) {
@@ -114,7 +114,7 @@ class HealthController extends Controller
             ];
         }
 
-        // 4. Proxy Pool Check
+        // 4. Проверка доступности пула прокси-серверов
         try {
             $totalProxies = ProxyServer::count();
             $activeProxies = ProxyServer::where('is_active', true)->count();

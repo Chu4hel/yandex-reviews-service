@@ -16,7 +16,7 @@ class ProxyDto
     ) {}
 
     /**
-     * Get connection string for HTTP client (e.g. 'http://user:pass@host:port').
+     * Строка подключения для HTTP-клиента (напр., 'http://user:pass@host:port').
      */
     public function toHttpOption(): string
     {
@@ -31,7 +31,7 @@ class ProxyDto
     }
 
     /**
-     * Masked string for logging (hides password).
+     * Маскированная строка для безопасного логирования (скрывает пароль).
      */
     public function toMaskedString(): string
     {

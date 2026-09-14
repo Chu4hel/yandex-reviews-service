@@ -28,7 +28,7 @@ class OrganizationController extends Controller
     ) {}
 
     /**
-     * List all connected organizations.
+     * Список всех подключенных организаций.
      */
     public function index(): JsonResponse
     {
@@ -40,7 +40,7 @@ class OrganizationController extends Controller
     }
 
     /**
-     * Connect a new organization by Yandex Maps URL or ID.
+     * Подключение новой организации по ссылке или ID Яндекс Карт.
      */
     public function store(ConnectOrganizationRequest $request): JsonResponse
     {
@@ -86,7 +86,7 @@ class OrganizationController extends Controller
     }
 
     /**
-     * Get organization details.
+     * Детальная информация об организации.
      */
     public function show(Organization $organization): JsonResponse
     {
@@ -96,7 +96,7 @@ class OrganizationController extends Controller
     }
 
     /**
-     * Get real-time sync status and progress.
+     * Текущий статус и прогресс фоновой синхронизации организации.
      */
     public function status(Organization $organization): JsonResponse
     {
@@ -115,7 +115,7 @@ class OrganizationController extends Controller
     }
 
     /**
-     * Trigger re-synchronization of organization reviews.
+     * Запуск повторной синхронизации отзывов организации.
      */
     public function sync(Organization $organization, Request $request): JsonResponse
     {
@@ -126,7 +126,7 @@ class OrganizationController extends Controller
             ], 409);
         }
 
-        // Check if sync execution is requested immediately
+        // Проверка запроса на немедленную синхронизацию
         $syncNow = $request->boolean('sync_now', false);
 
         if ($syncNow) {
@@ -146,7 +146,7 @@ class OrganizationController extends Controller
             }
         }
 
-        // Otherwise dispatch background job
+        // Запуск синхронизации в фоновой очереди
         $organization->update([
             'sync_status' => 'pending',
             'sync_progress' => 0,
@@ -162,13 +162,13 @@ class OrganizationController extends Controller
     }
 
     /**
-     * Get paginated reviews for organization (50 per page).
+     * Получить пагинированный список отзывов организации (по 50 на страницу).
      */
     public function reviews(Organization $organization, Request $request): JsonResponse
     {
         $query = $organization->reviews();
 
-        // Optional filter by rating
+        // Фильтрация по оценке
         if ($request->has('rating') && is_numeric($request->input('rating'))) {
             $rating = (int) $request->input('rating');
             if ($rating >= 1 && $rating <= 5) {
@@ -176,7 +176,7 @@ class OrganizationController extends Controller
             }
         }
 
-        // Sorting
+        // Сортировка отзывов
         $sort = $request->input('sort', 'date_desc');
         match ($sort) {
             'date_asc' => $query->reorder('published_at', 'asc'),
@@ -185,7 +185,7 @@ class OrganizationController extends Controller
             default => $query->reorder('published_at', 'desc'),
         };
 
-        // Always 50 reviews per page as required by technical task
+        // По 50 отзывов на страницу согласно техническому заданию
         $perPage = 50;
         $paginated = $query->paginate($perPage);
 
@@ -202,7 +202,7 @@ class OrganizationController extends Controller
     }
 
     /**
-     * Get history of snapshots (changes between syncs).
+     * Получить историю снимков изменений (динамику репутации).
      */
     public function snapshots(Organization $organization): JsonResponse
     {
@@ -214,7 +214,7 @@ class OrganizationController extends Controller
     }
 
     /**
-     * Export reviews to CSV (formatted with UTF-8 BOM for Microsoft Excel).
+     * Экспорт отзывов в CSV с UTF-8 BOM для совместимости с Microsoft Excel.
      */
     public function export(Organization $organization, Request $request): StreamedResponse
     {
@@ -246,10 +246,10 @@ class OrganizationController extends Controller
                 return;
             }
 
-            // UTF-8 BOM for Excel Cyrillic compatibility
+            // UTF-8 BOM для корректного отображения кириллицы в Excel
             fwrite($handle, "\xEF\xBB\xBF");
 
-            // CSV Header row
+            // Заголовок таблицы CSV
             fputcsv($handle, [
                 'ID отзыва Яндекса',
                 'Автор',
@@ -262,7 +262,7 @@ class OrganizationController extends Controller
                 'Дата ответа компании',
             ], ';');
 
-            // Stream reviews in chunks to preserve memory
+            // Потоковая выгрузка отзывов порциями для экономии памяти
             $query->chunk(200, function ($reviews) use ($handle) {
                 foreach ($reviews as $review) {
                     fputcsv($handle, [

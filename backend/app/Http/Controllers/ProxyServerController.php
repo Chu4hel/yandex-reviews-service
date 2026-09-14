@@ -14,7 +14,7 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 class ProxyServerController extends Controller
 {
     /**
-     * List all proxies in pool.
+     * Список всех прокси-серверов в пуле ротации.
      */
     public function index(): AnonymousResourceCollection
     {
@@ -24,7 +24,7 @@ class ProxyServerController extends Controller
     }
 
     /**
-     * Add proxy or batch of proxies to pool.
+     * Добавление одного или нескольких прокси-серверов в пул.
      */
     public function store(Request $request): JsonResponse
     {
@@ -82,20 +82,20 @@ class ProxyServerController extends Controller
     }
 
     /**
-     * Toggle active state of a proxy.
+     * Переключение статуса активности прокси-сервера.
      */
     public function toggle(ProxyServer $proxy): ProxyServerResource
     {
         $proxy->update([
             'is_active' => ! $proxy->is_active,
-            'cooldown_until' => null, // reset cooldown on manual toggle
+            'cooldown_until' => null, // сброс карантина при ручном переключении
         ]);
 
         return new ProxyServerResource($proxy);
     }
 
     /**
-     * Remove a proxy from pool.
+     * Удаление прокси-сервера из пула ротации.
      */
     public function destroy(ProxyServer $proxy): JsonResponse
     {

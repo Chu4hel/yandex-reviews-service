@@ -14,7 +14,7 @@ use Symfony\Component\HttpFoundation\Response;
 class AssignRequestId
 {
     /**
-     * Handle an incoming request by ensuring a unique Correlation ID (X-Request-ID).
+     * Обработка входящего HTTP-запроса с привязкой сквозного Correlation ID (X-Request-ID).
      *
      * @param  Closure(Request): (Response)  $next
      */
@@ -25,7 +25,7 @@ class AssignRequestId
             ? $headerRequestId
             : (string) Str::uuid();
 
-        // Inject request ID into Laravel Context and Structured Logs
+        // Инжектируем идентификатор запроса в контекст Laravel и структурированные логи
         Context::add('request_id', $requestId);
         Log::withContext(['request_id' => $requestId]);
 
