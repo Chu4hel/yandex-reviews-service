@@ -27,12 +27,20 @@ const demoExamples = [
     url: 'https://yandex.ru/maps/org/dodo_pizza/67037665858/reviews/',
   },
   {
-    name: 'Шоколадница (Тверская)',
-    url: 'https://yandex.ru/maps/org/shokoladnitsa/1098616954/reviews/',
+    name: 'Шоколадница (Манежная)',
+    url: 'https://yandex.ru/maps/org/shokoladnitsa/171251592216/reviews/',
   },
   {
     name: 'Вкусно — и точка',
-    url: 'https://yandex.ru/maps/org/vkusno_i_tochka/1151608688/reviews/',
+    url: 'https://yandex.ru/maps/org/vkusno_i_tochka/128463520794/reviews/',
+  },
+  {
+    name: 'Музей Яндекса',
+    url: 'https://yandex.ru/maps/org/219658402738/reviews/',
+  },
+  {
+    name: 'Эрмитаж',
+    url: 'https://yandex.ru/maps/org/1057721048/reviews/',
   },
 ]
 

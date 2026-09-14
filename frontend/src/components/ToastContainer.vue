@@ -51,7 +51,7 @@ const getStyles = (type: ToastType): { container: string; iconClass: string } =>
 <template>
   <div
     aria-live="polite"
-    class="fixed top-4 right-4 z-50 flex flex-col gap-2.5 max-w-sm w-full pointer-events-none px-4 sm:px-0"
+    class="fixed top-20 right-4 sm:right-6 z-[9999] flex flex-col gap-2.5 max-w-sm sm:max-w-md w-full pointer-events-none px-4 sm:px-0"
   >
     <TransitionGroup
       name="toast"
@@ -61,7 +61,7 @@ const getStyles = (type: ToastType): { container: string; iconClass: string } =>
       <div
         v-for="toast in notificationStore.toasts"
         :key="toast.id"
-        class="pointer-events-auto flex items-start gap-3 p-4 rounded-xl border shadow-lg transition-all duration-300"
+        class="pointer-events-auto flex items-start gap-3 p-4 rounded-xl border shadow-xl backdrop-blur-md transition-all duration-300"
         :class="getStyles(toast.type).container"
         role="alert"
       >
@@ -76,7 +76,7 @@ const getStyles = (type: ToastType): { container: string; iconClass: string } =>
           <h4 class="text-sm font-semibold leading-tight">
             {{ toast.title }}
           </h4>
-          <p v-if="toast.message" class="text-xs mt-1 leading-normal opacity-90 break-words">
+          <p v-if="toast.message" class="text-xs mt-1.5 leading-relaxed opacity-95 break-words [overflow-wrap:anywhere]">
             {{ toast.message }}
           </p>
 
@@ -96,7 +96,7 @@ const getStyles = (type: ToastType): { container: string; iconClass: string } =>
 
         <button
           type="button"
-          class="shrink-0 -mr-1 -mt-1 p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-black/5 transition-colors cursor-pointer"
+          class="shrink-0 -mr-1 -mt-1 p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-black/5 transition-colors cursor-pointer"
           aria-label="Закрыть уведомление"
           @click="notificationStore.dismiss(toast.id)"
         >
@@ -120,6 +120,6 @@ const getStyles = (type: ToastType): { container: string; iconClass: string } =>
 
 .toast-leave-to {
   opacity: 0;
-  transform: translateY(-10px) scale(0.95);
+  transform: translateX(30px) scale(0.95);
 }
 </style>
