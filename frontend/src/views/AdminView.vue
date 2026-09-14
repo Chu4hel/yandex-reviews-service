@@ -160,7 +160,7 @@ const formatDateTime = (dateStr: string | null): string => {
           :class="
             hasMasterKey
               ? 'border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300'
-              : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-750'
+              : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700'
           "
         >
           <span>{{ hasMasterKey ? '🔑 Ключ X-Admin-Key активен' : '🛡️ Ввести X-Admin-Key' }}</span>
@@ -170,7 +170,7 @@ const formatDateTime = (dateStr: string | null): string => {
           type="button"
           @click="handleRefresh"
           :disabled="adminStore.isLoadingSettings || adminStore.isLoadingProxies"
-          class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-750 transition shadow-xs disabled:opacity-50 cursor-pointer"
+          class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-700 transition shadow-xs disabled:opacity-50 cursor-pointer"
         >
           <svg
             class="w-4 h-4 text-slate-500"
@@ -592,7 +592,7 @@ const formatDateTime = (dateStr: string | null): string => {
             <tr
               v-for="proxy in filteredProxies"
               :key="proxy.id"
-              class="hover:bg-slate-50/70 dark:hover:bg-slate-750/50 transition-colors"
+              class="hover:bg-slate-50/70 dark:hover:bg-slate-700/50 transition-colors"
             >
               <!-- Endpoint -->
               <td class="px-5 py-3.5 font-mono text-slate-800 dark:text-slate-200">
