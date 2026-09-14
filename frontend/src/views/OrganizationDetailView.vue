@@ -450,6 +450,9 @@ onUnmounted(() => {
               :style="{ width: `${organization.sync_progress}%` }"
             ></div>
           </div>
+          <p class="mt-2 text-[11px] text-amber-800/90 dark:text-amber-300/80">
+            🛡️ Установлен безопасный лимит: до 600 актуальных отзывов (12 страниц) для защиты от блокировки по IP и капчи.
+          </p>
         </div>
 
         <!-- Metric Cards (Rating, Ratings Count, Reviews Count) -->
@@ -536,22 +539,26 @@ onUnmounted(() => {
         <!-- Discrepancy Info Banner -->
         <div
           v-if="organization.reviews_count > meta.total && organization.sync_status !== 'syncing'"
-          class="p-3.5 rounded-xl bg-blue-50/70 dark:bg-blue-950/30 border border-blue-200/80 dark:border-blue-800/60 text-xs text-blue-900 dark:text-blue-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+          class="p-4 rounded-xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/60 text-xs text-amber-950 dark:text-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
         >
-          <div class="flex items-start sm:items-center gap-2.5">
+          <div class="flex items-start gap-2.5">
             <span class="text-base shrink-0">ℹ️</span>
-            <span>
-              На Яндекс.Картах зафиксировано <strong>{{ organization.reviews_count.toLocaleString('ru-RU') }}</strong> отзывов.
-              В базу сервиса сейчас загружено <strong>{{ meta.total.toLocaleString('ru-RU') }}</strong>.
-            </span>
+            <div class="space-y-1">
+              <p>
+                На Яндекс.Картах зафиксировано <strong>{{ organization.reviews_count.toLocaleString('ru-RU') }}</strong> отзывов (в базе сервиса: <strong>{{ meta.total.toLocaleString('ru-RU') }}</strong>).
+              </p>
+              <p class="text-amber-800 dark:text-amber-300 font-medium">
+                🛡️ <strong>Намеренное ограничение в коде:</strong> сервис выгружает до <strong>600 актуальных отзывов</strong> (12 страниц по 50 шт.). Это сделано намеренно для гарантированной защиты IP-адреса от блокировок и SmartCaptcha Яндекса.
+              </p>
+            </div>
           </div>
           <button
             type="button"
             @click="triggerSync(false)"
             :disabled="isSyncing || (orgStore.syncCooldowns[orgId] ?? 0) > 0"
-            class="shrink-0 self-start sm:self-auto px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-medium transition disabled:opacity-50 cursor-pointer flex items-center gap-1"
+            class="shrink-0 self-start sm:self-auto px-3.5 py-2 rounded-lg bg-amber-600 hover:bg-amber-700 text-white font-semibold transition disabled:opacity-50 cursor-pointer flex items-center gap-1 shadow-xs"
           >
-            <span>🔄 Синхронизировать</span>
+            <span>🔄 Обновить отзывы (до 600)</span>
           </button>
         </div>
 

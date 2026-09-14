@@ -98,11 +98,11 @@ class OrganizationSyncService
     /**
      * Полная синхронизация отзывов организации.
      *
-     * @param  int|null  $maxPages  Максимальное количество страниц для сбора (null — выгрузка всех доступных страниц)
+     * @param  int  $maxPages  Максимальное количество страниц для сбора (12 страниц * 50 = 600 отзывов для защиты от SmartCaptcha)
      *
      * @throws YandexParserException
      */
-    public function syncOrganizationReviews(Organization $organization, ?int $maxPages = null): SyncResultDto
+    public function syncOrganizationReviews(Organization $organization, int $maxPages = 12): SyncResultDto
     {
         $startTime = microtime(true);
 
@@ -111,12 +111,12 @@ class OrganizationSyncService
             'yandex_org_id' => $organization->yandex_org_id,
         ]);
 
-        $configMax = (int) config('services.yandex.max_sync_pages', 0);
-        $effectiveMax = $maxPages ?? ($configMax > 0 ? $configMax : null);
+        $configMax = (int) config('services.yandex.max_sync_pages', 12);
+        $effectiveMax = $configMax > 0 ? min($maxPages, $configMax) : $maxPages;
 
         Log::info('OrganizationSyncService: начата синхронизация отзывов', [
             'url' => $organization->url,
-            'max_pages' => $effectiveMax ?? 'unlimited',
+            'max_pages' => $effectiveMax,
             'current_rating' => $organization->rating,
             'current_reviews_count' => $organization->reviews_count,
         ]);
@@ -146,9 +146,7 @@ class OrganizationSyncService
                 'reviews_count' => $parsedOrg->reviewsCount,
             ]);
 
-            $totalPagesToScan = $effectiveMax !== null
-                ? min($parsedOrg->totalPages, $effectiveMax)
-                : $parsedOrg->totalPages;
+            $totalPagesToScan = min($parsedOrg->totalPages, $effectiveMax);
 
             if ($totalPagesToScan < 1) {
                 $totalPagesToScan = 1;
