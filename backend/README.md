@@ -17,7 +17,7 @@ REST API сервис на базе **Laravel 12** и **PHP 8.2+**, реализ
 - **`app/Services`**: Прикладной оркестратор:
   - `OrganizationSyncService.php`: Идемпотентное сохранение организаций и отзывов, управление циклом синхронизации, фиксация снимков изменений.
 - **`app/Jobs`**: Асинхронные очереди:
-  - `SyncOrganizationReviewsJob.php`: Фоновая задача синхронизации до ~600 отзывов (12 страниц по 50 отзывов) с экспоненциальным повтором (`backoff = [10, 30, 60]`).
+  - `SyncOrganizationReviewsJob.php`: Фоновая задача синхронизации до ~600 отзывов (12 страниц по 50 отзывов, настраивается через `YANDEX_MAX_SYNC_PAGES`) с трансляцией прогресса (`sync_progress`, `sync_message`) и экспоненциальным повтором (`backoff = [10, 30, 60]`).
 - **`app/Support`**: Утилитарные сервисы:
   - `ContentSanitizer.php`: Очистка XSS-векторов, удаление опасных HTML-тегов, фильтрация управляющих символов и валидация безопасных схем URL.
   - `ProxyStringParser.php`: Универсальный парсер адресов прокси (`ip:port`, `ip:port:login:password`, `ip:port@login:password`, `user:password@ip:port`, `socks5://...`).
@@ -76,9 +76,9 @@ php artisan reviews:prune-snapshots --days=90
 | `GET` | `/api/organizations` | Sanctum | Список всех подключенных организаций |
 | `POST` | `/api/organizations` | Sanctum | Подключение карточки по ссылке или ID |
 | `GET` | `/api/organizations/{id}` | Sanctum | Детальная информация об организации |
-| `GET` | `/api/organizations/{id}/status` | Sanctum | Статус и процент фоновой синхронизации |
+| `GET` | `/api/organizations/{id}/status` | Sanctum | Статус, процент (`sync_progress`) и сообщение (`sync_message`) синхронизации |
 | `POST` | `/api/organizations/{id}/sync` | Sanctum | Запуск повторной синхронизации |
-| `GET` | `/api/organizations/{id}/reviews` | Sanctum | Список отзывов (по 50 на стр., фильтры, сортировка) |
+| `GET` | `/api/organizations/{id}/reviews` | Sanctum | Список отзывов (по 50 на стр., фильтры, сортировка, полнотекстовый поиск `?search=`) |
 | `GET` | `/api/organizations/{id}/snapshots` | Sanctum | История снимков рейтинга и притока отзывов |
 | `GET` | `/api/organizations/{id}/export` | Sanctum | Экспорт отзывов в CSV (Excel UTF-8 BOM) |
 | `GET` | `/api/admin/settings` | Admin / API Key | Системные метрики (БД, очереди, прокси) |
@@ -134,5 +134,5 @@ php artisan test
 ```
 
 > **Статус проверок:**
-> - PHPStan: Level 8 — **0 ошибок** на 44 файлах.
-> - PHPUnit: **72 теста пройдены** (443 assertions).
+> - PHPStan: Level 8 — **0 ошибок** на всех файлах.
+> - PHPUnit: **85 тестов пройдены** (514 assertions).
