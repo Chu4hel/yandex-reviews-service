@@ -13,6 +13,10 @@ const showAddModal = ref<boolean>(false)
 const rawProxiesInput = ref<string>('')
 const localError = ref<string | null>(null)
 
+const hasMasterKey = ref<boolean>(Boolean(localStorage.getItem('admin_secret_key')))
+const showMasterKeyModal = ref<boolean>(false)
+const masterKeyInput = ref<string>(localStorage.getItem('admin_secret_key') || '')
+
 onMounted(async () => {
   await Promise.all([adminStore.fetchSettings(), adminStore.fetchProxies()])
 })
@@ -20,6 +24,28 @@ onMounted(async () => {
 const handleRefresh = async (): Promise<void> => {
   await Promise.all([adminStore.fetchSettings(), adminStore.fetchProxies()])
   notificationStore.info('Данные обновлены', 'Статистика и пул прокси актуализированы')
+}
+
+const handleSaveMasterKey = async (): Promise<void> => {
+  const trimmed = masterKeyInput.value.trim()
+  if (!trimmed) {
+    handleClearMasterKey()
+    return
+  }
+  localStorage.setItem('admin_secret_key', trimmed)
+  hasMasterKey.value = true
+  showMasterKeyModal.value = false
+  await adminStore.fetchProxies()
+  notificationStore.success('Мастер-ключ применен', 'Логины прокси-серверов теперь отображаются без маскировки')
+}
+
+const handleClearMasterKey = async (): Promise<void> => {
+  localStorage.removeItem('admin_secret_key')
+  masterKeyInput.value = ''
+  hasMasterKey.value = false
+  showMasterKeyModal.value = false
+  await adminStore.fetchProxies()
+  notificationStore.info('Мастер-ключ сброшен', 'Включен безопасный режим маскировки реквизитов')
 }
 
 const filteredProxies = computed(() => {
@@ -129,6 +155,19 @@ const formatDateTime = (dateStr: string | null): string => {
       <div class="flex items-center gap-3">
         <button
           type="button"
+          @click="showMasterKeyModal = true"
+          class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border text-xs font-semibold shadow-xs transition cursor-pointer"
+          :class="
+            hasMasterKey
+              ? 'border-emerald-300 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300'
+              : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-750'
+          "
+        >
+          <span>{{ hasMasterKey ? '🔑 Ключ X-Admin-Key активен' : '🛡️ Ввести X-Admin-Key' }}</span>
+        </button>
+
+        <button
+          type="button"
           @click="handleRefresh"
           :disabled="adminStore.isLoadingSettings || adminStore.isLoadingProxies"
           class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-semibold text-slate-700 dark:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-750 transition shadow-xs disabled:opacity-50 cursor-pointer"
@@ -159,6 +198,112 @@ const formatDateTime = (dateStr: string | null): string => {
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
           </svg>
           Добавить прокси
+        </button>
+      </div>
+    </div>
+
+    <!-- Master Key Modal -->
+    <div
+      v-if="showMasterKeyModal"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs"
+    >
+      <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-md w-full p-6 shadow-xl border border-slate-200 dark:border-slate-700 space-y-4">
+        <div class="flex items-center justify-between">
+          <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <span>🔑 Мастер-ключ X-Admin-Key</span>
+          </h3>
+          <button
+            type="button"
+            @click="showMasterKeyModal = false"
+            class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+        <p class="text-xs text-slate-500 dark:text-slate-400">
+          Передача мастер-ключа снимает маскировку с логинов прокси-серверов в API. Пароли полностью скрыты из соображений безопасности.
+        </p>
+        <div>
+          <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+            Секретный ключ администратора
+          </label>
+          <input
+            v-model="masterKeyInput"
+            type="password"
+            placeholder="Введите ADMIN_API_KEY..."
+            class="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 font-mono text-xs text-slate-800 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-red-500"
+          />
+        </div>
+        <div class="flex items-center justify-between pt-2">
+          <button
+            v-if="hasMasterKey"
+            type="button"
+            @click="handleClearMasterKey"
+            class="text-xs text-rose-600 font-medium hover:underline cursor-pointer"
+          >
+            Сбросить ключ
+          </button>
+          <span v-else></span>
+          <div class="flex items-center gap-2">
+            <button
+              type="button"
+              @click="showMasterKeyModal = false"
+              class="px-3.5 py-1.5 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer"
+            >
+              Отмена
+            </button>
+            <button
+              type="button"
+              @click="handleSaveMasterKey"
+              class="px-4 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-semibold shadow-xs cursor-pointer"
+            >
+              Применить
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Security Information Banner -->
+    <div
+      class="p-4 rounded-2xl border text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+      :class="
+        hasMasterKey
+          ? 'bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-200/80 dark:border-emerald-900/40 text-emerald-900 dark:text-emerald-200'
+          : 'bg-slate-50 dark:bg-slate-800/80 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'
+      "
+    >
+      <div class="flex items-start sm:items-center gap-2.5">
+        <span class="text-base">{{ hasMasterKey ? '🔑' : '🛡️' }}</span>
+        <div>
+          <span class="font-bold">
+            {{ hasMasterKey ? 'Режим полного доступа к реквизитам:' : 'Безопасный режим защиты реквизитов:' }}
+          </span>
+          <span class="ml-1 text-slate-600 dark:text-slate-400">
+            {{
+              hasMasterKey
+                ? 'Заголовок X-Admin-Key активен. Логины прокси-серверов выводятся полностью. Пароли скрыты навсегда.'
+                : 'Пароли скрыты на бэкенде, логины маскируются (u***1). Для отображения логинов без цензуры введите мастер-ключ.'
+            }}
+          </span>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        <button
+          v-if="hasMasterKey"
+          type="button"
+          @click="handleClearMasterKey"
+          class="text-xs font-semibold text-rose-600 hover:text-rose-700 underline cursor-pointer"
+        >
+          Скрыть логины
+        </button>
+        <button
+          v-else
+          type="button"
+          @click="showMasterKeyModal = true"
+          class="text-xs font-semibold text-red-600 hover:text-red-700 underline cursor-pointer"
+        >
+          Ввести ключ для раскрытия
         </button>
       </div>
     </div>
@@ -452,8 +597,23 @@ const formatDateTime = (dateStr: string | null): string => {
               <!-- Endpoint -->
               <td class="px-5 py-3.5 font-mono text-slate-800 dark:text-slate-200">
                 <span class="font-semibold">{{ proxy.host }}</span>:{{ proxy.port }}
-                <div v-if="proxy.username" class="text-[10px] text-slate-400 font-sans mt-0.5">
-                  auth: {{ proxy.username }}
+                <div v-if="proxy.username" class="text-[10px] font-sans mt-0.5 flex items-center gap-1.5 flex-wrap">
+                  <span class="text-slate-400">auth:</span>
+                  <span class="font-mono text-slate-600 dark:text-slate-300">{{ proxy.username }}</span>
+                  <span
+                    v-if="proxy.username.includes('***')"
+                    class="text-[9px] px-1.5 py-0.2 rounded font-medium bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+                    title="Логин замаскирован. Введите X-Admin-Key для раскрытия."
+                  >
+                    замаскирован
+                  </span>
+                  <span
+                    v-else
+                    class="text-[9px] px-1.5 py-0.2 rounded font-medium bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                    title="Логин раскрыт мастер-ключом"
+                  >
+                    раскрыт
+                  </span>
                 </div>
               </td>
 

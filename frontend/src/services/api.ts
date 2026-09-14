@@ -25,11 +25,15 @@ export const api = axios.create({
   },
 })
 
-// Прикрепление токена авторизации Bearer к исходящим запросам
+// Прикрепление токена авторизации Bearer и сервисного мастер-ключа X-Admin-Key к исходящим запросам
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('auth_token')
   if (token && config.headers) {
     config.headers.Authorization = `Bearer ${token}`
+  }
+  const adminSecretKey = localStorage.getItem('admin_secret_key')
+  if (adminSecretKey && config.headers) {
+    config.headers['X-Admin-Key'] = adminSecretKey
   }
   return config
 })
@@ -208,7 +212,7 @@ export const getAdminProxiesApi = async (): Promise<{ data: ProxyServerItem[] }>
 }
 
 export const addProxiesApi = async (proxies: string[]): Promise<{ message: string; count: number; proxies: ProxyServerItem[] }> => {
-  const response = await api.post<{ message: string; count: number; proxies: ProxyServerItem[] }>('/admin/proxies', { proxies })
+  const response = await api.post<{ message: string; count: number; proxies: ProxyServerItem[] }>('/proxies', { proxies })
   return response.data
 }
 

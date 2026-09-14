@@ -5,7 +5,7 @@ import axios from 'axios'
 import { useOrganizationsStore } from '@/stores/organizations'
 import { useAuthStore } from '@/stores/auth'
 import { useNotificationStore } from '@/stores/notification'
-import { extractRequestId, extractRetryAfterSeconds } from '@/services/api'
+import { extractRequestId, extractRetryAfterSeconds, addProxiesApi } from '@/services/api'
 import type { Organization } from '@/types/organization'
 import RatingStars from '@/components/RatingStars.vue'
 import ConfirmModal from '@/components/ConfirmModal.vue'
@@ -14,6 +14,11 @@ const router = useRouter()
 const store = useOrganizationsStore()
 const authStore = useAuthStore()
 const notificationStore = useNotificationStore()
+
+const showAddProxyModal = ref<boolean>(false)
+const rawProxiesInput = ref<string>('')
+const isSubmittingProxies = ref<boolean>(false)
+const proxyModalError = ref<string | null>(null)
 
 const handleGoToAdmin = async (): Promise<void> => {
   if (!authStore.isAdmin) {
@@ -24,10 +29,43 @@ const handleGoToAdmin = async (): Promise<void> => {
   if (authStore.isAdmin) {
     void router.push('/admin')
   } else {
-    notificationStore.warning(
-      'Доступ ограничен',
-      'Панель управления пулом прокси доступна только администраторам системы.'
+    showAddProxyModal.value = true
+    notificationStore.info(
+      'Пополнение пула прокси',
+      'Просмотр и редактирование активных прокси доступны только администраторам. Вы можете пополнить пул новыми адресами через форму.'
     )
+  }
+}
+
+const handleAddProxiesSubmit = async (): Promise<void> => {
+  proxyModalError.value = null
+  const lines = rawProxiesInput.value
+    .split('\n')
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0)
+
+  if (lines.length === 0) {
+    proxyModalError.value = 'Пожалуйста, введите хотя бы один адрес прокси-сервера'
+    return
+  }
+
+  isSubmittingProxies.value = true
+  try {
+    const res = await addProxiesApi(lines)
+    rawProxiesInput.value = ''
+    showAddProxyModal.value = false
+    notificationStore.success('Прокси добавлены в пул', res.message ?? `Добавлено адресов: ${res.count}`)
+  } catch (err: unknown) {
+    if (typeof err === 'object' && err !== null && 'response' in err) {
+      const axiosErr = err as { response?: { data?: { message?: string } } }
+      proxyModalError.value = axiosErr.response?.data?.message ?? 'Не удалось добавить прокси'
+    } else if (err instanceof Error) {
+      proxyModalError.value = err.message
+    } else {
+      proxyModalError.value = 'Ошибка добавления прокси'
+    }
+  } finally {
+    isSubmittingProxies.value = false
   }
 }
 
@@ -188,17 +226,92 @@ onUnmounted(() => {
         </p>
       </div>
 
-      <button
-        type="button"
-        @click="handleGoToAdmin"
-        class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-750 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 text-xs font-semibold transition border border-slate-200/80 dark:border-slate-700 shadow-xs cursor-pointer self-start sm:self-auto"
-      >
-        <svg class="w-4 h-4 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-        </svg>
-        <span>Управление пулом прокси</span>
-        <span class="text-slate-400">&rarr;</span>
-      </button>
+      <div class="flex items-center gap-2.5 flex-wrap self-start sm:self-auto">
+        <button
+          type="button"
+          @click="showAddProxyModal = true"
+          class="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-semibold transition shadow-xs cursor-pointer"
+        >
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+          </svg>
+          <span>Пополнить пул прокси</span>
+        </button>
+
+        <button
+          type="button"
+          @click="handleGoToAdmin"
+          class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-750 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-100 text-xs font-semibold transition border border-slate-200/80 dark:border-slate-700 shadow-xs cursor-pointer"
+          :title="authStore.isAdmin ? 'Перейти в панель администратора' : 'Просмотр активного пула доступен администраторам'"
+        >
+          <svg class="w-4 h-4 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+          </svg>
+          <span>{{ authStore.isAdmin ? 'Управление пулом прокси' : 'Пул прокси (инфо)' }}</span>
+          <span class="text-slate-400">&rarr;</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Modal Add Proxies -->
+    <div
+      v-if="showAddProxyModal"
+      class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs"
+    >
+      <div class="bg-white dark:bg-slate-800 rounded-2xl max-w-lg w-full p-6 shadow-xl border border-slate-200 dark:border-slate-700 space-y-4">
+        <div class="flex items-center justify-between">
+          <h3 class="text-base font-bold text-slate-900 dark:text-white flex items-center gap-2">
+            <span>🌐 Пополнение пула прокси</span>
+          </h3>
+          <button
+            type="button"
+            @click="showAddProxyModal = false"
+            class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+
+        <p class="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+          Любой авторизованный пользователь может пополнять пул серверов для бесперебойной ротации запросов.
+          Поддерживаются форматы: <code class="text-red-600 font-mono">host:port</code>, <code class="text-red-600 font-mono">host:port:login:pass</code>, <code class="text-red-600 font-mono">http://login:pass@host:port</code>, <code class="text-red-600 font-mono">socks5://...</code>.
+        </p>
+
+        <div v-if="proxyModalError" class="p-3 rounded-xl bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-800 text-rose-800 dark:text-rose-200 text-xs">
+          {{ proxyModalError }}
+        </div>
+
+        <div>
+          <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
+            Список адресов (по одному на строку)
+          </label>
+          <textarea
+            v-model="rawProxiesInput"
+            rows="4"
+            placeholder="192.168.1.100:8080:myuser:secret123&#10;http://user:pass@10.0.0.1:3128&#10;socks5://user:pass@172.16.0.2:1080"
+            class="w-full font-mono text-xs p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 focus:outline-hidden focus:ring-2 focus:ring-red-500 text-slate-800 dark:text-slate-100"
+          ></textarea>
+        </div>
+
+        <div class="flex items-center justify-end gap-3 pt-2">
+          <button
+            type="button"
+            @click="showAddProxyModal = false"
+            class="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 cursor-pointer"
+          >
+            Отмена
+          </button>
+          <button
+            type="button"
+            @click="handleAddProxiesSubmit"
+            :disabled="isSubmittingProxies"
+            class="px-5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-semibold shadow-xs transition disabled:opacity-50 cursor-pointer flex items-center gap-2"
+          >
+            <span v-if="isSubmittingProxies">Добавление...</span>
+            <span v-else>Отправить в пул</span>
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- Connection Card -->
