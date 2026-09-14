@@ -280,54 +280,54 @@ const formatDate = (iso: string): string => {
     <!-- Top Summary Metrics Cards -->
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
       <!-- Delta Rating -->
-      <div class="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-850 flex items-center justify-between">
+      <div class="p-5 rounded-2xl border border-slate-200/80 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm flex items-center justify-between">
         <div>
-          <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Тренд рейтинга</span>
-          <div class="flex items-baseline gap-2 mt-1">
-            <span class="text-2xl font-extrabold text-slate-900 dark:text-white">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-400">Тренд рейтинга</span>
+          <div class="flex items-baseline gap-2.5 mt-2">
+            <span class="text-3xl font-extrabold text-slate-900 dark:text-white tabular-nums">
               {{ currentRating !== null ? currentRating.toFixed(1) : '—' }}★
             </span>
             <span
               v-if="ratingDelta !== 0"
-              class="text-xs font-bold px-1.5 py-0.5 rounded"
-              :class="ratingDelta > 0 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/70 dark:text-emerald-300' : 'bg-rose-100 text-rose-700 dark:bg-rose-950/70 dark:text-rose-300'"
+              class="text-xs font-bold px-2 py-0.5 rounded-md"
+              :class="ratingDelta > 0 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/80 dark:text-emerald-400' : 'bg-rose-100 text-rose-700 dark:bg-rose-950/80 dark:text-rose-400'"
             >
               {{ ratingDelta > 0 ? `+${ratingDelta}` : ratingDelta }}
             </span>
             <span v-else class="text-xs text-slate-400 font-medium">без изменений</span>
           </div>
         </div>
-        <div class="text-right text-xs text-slate-400">
-          было: <span class="font-semibold text-slate-600 dark:text-slate-300">{{ initialRating !== null ? initialRating.toFixed(1) : '—' }}</span>
+        <div class="text-right text-xs text-slate-500 dark:text-slate-400">
+          было: <span class="font-bold text-slate-700 dark:text-slate-200">{{ initialRating !== null ? initialRating.toFixed(1) : '—' }}</span>
         </div>
       </div>
 
       <!-- New Reviews Added -->
-      <div class="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-850 flex items-center justify-between">
+      <div class="p-5 rounded-2xl border border-slate-200/80 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm flex items-center justify-between">
         <div>
-          <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Прирост отзывов</span>
-          <div class="text-2xl font-extrabold text-slate-900 dark:text-white mt-1">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-400">Прирост отзывов</span>
+          <div class="text-3xl font-extrabold text-slate-900 dark:text-white tabular-nums mt-2">
             +{{ totalNewReviews.toLocaleString('ru-RU') }}
           </div>
         </div>
-        <span class="px-2 py-1 text-xs font-bold rounded-lg bg-red-100 text-red-700 dark:bg-red-950/60 dark:text-red-400">
+        <span class="px-2.5 py-1 text-xs font-bold rounded-lg bg-emerald-100 text-emerald-800 dark:bg-emerald-950/80 dark:text-emerald-400">
           Прирост
         </span>
       </div>
 
       <!-- Total Snapshots -->
-      <div class="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-850 flex items-center justify-between">
+      <div class="p-5 rounded-2xl border border-slate-200/80 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm flex items-center justify-between">
         <div>
-          <span class="text-[11px] font-bold uppercase tracking-wider text-slate-400">Снимков в истории</span>
-          <div class="text-2xl font-extrabold text-slate-900 dark:text-white mt-1">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-400">Снимков в истории</span>
+          <div class="text-3xl font-extrabold text-slate-900 dark:text-white tabular-nums mt-2">
             {{ sortedSnapshots.length }}
           </div>
         </div>
         <div class="text-right">
-          <span v-if="isDemoActive" class="px-2 py-0.5 text-[10px] font-bold rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+          <span v-if="isDemoActive" class="px-2.5 py-1 text-xs font-bold rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
             Демо-срез
           </span>
-          <span v-else class="text-xs text-slate-400 font-medium">
+          <span v-else class="text-xs text-slate-500 dark:text-slate-400 font-medium">
             Синхронизаций
           </span>
         </div>

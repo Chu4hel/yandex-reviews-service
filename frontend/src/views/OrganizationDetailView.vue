@@ -458,36 +458,36 @@ onUnmounted(() => {
         <!-- Metric Cards (Rating, Ratings Count, Reviews Count) -->
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
           <!-- Card 1: Average Rating -->
-          <div class="bg-slate-50 dark:bg-slate-700/40 rounded-xl p-5 border border-slate-200/80 dark:border-slate-700 flex flex-col justify-between">
-            <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Средний рейтинг</span>
+          <div class="bg-slate-50 dark:bg-slate-800/80 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-700 shadow-xs flex flex-col justify-between">
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-400">Средний рейтинг</span>
             <div class="mt-2 flex items-baseline gap-3">
               <span class="text-4xl font-extrabold text-slate-900 dark:text-white tabular-nums">
                 {{ organization.rating ? organization.rating.toFixed(1) : '—' }}
               </span>
               <div class="flex flex-col">
                 <RatingStars :rating="organization.rating" size="md" />
-                <span class="text-[11px] text-slate-400 mt-0.5">по шкале Яндекс.Карт</span>
+                <span class="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">по шкале Яндекс.Карт</span>
               </div>
             </div>
           </div>
 
           <!-- Card 2: Ratings Count -->
-          <div class="bg-slate-50 dark:bg-slate-700/40 rounded-xl p-5 border border-slate-200/80 dark:border-slate-700 flex flex-col justify-between">
-            <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Количество оценок</span>
+          <div class="bg-slate-50 dark:bg-slate-800/80 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-700 shadow-xs flex flex-col justify-between">
+            <span class="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-400">Количество оценок</span>
             <div class="mt-2">
               <span class="text-3xl font-extrabold text-slate-900 dark:text-white tabular-nums">
                 {{ organization.ratings_count.toLocaleString('ru-RU') }}
               </span>
-              <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">Всего поставлено оценок пользователями</p>
+              <p class="text-xs text-slate-500 dark:text-slate-300 mt-1">Всего поставлено оценок пользователями</p>
             </div>
           </div>
 
           <!-- Card 3: Reviews Count -->
-          <div class="bg-slate-50 dark:bg-slate-700/40 rounded-xl p-5 border border-slate-200/80 dark:border-slate-700 flex flex-col justify-between">
+          <div class="bg-slate-50 dark:bg-slate-800/80 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-700 shadow-xs flex flex-col justify-between">
             <div class="flex items-center justify-between">
-              <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Отзывов на Яндекс.Картах</span>
+              <span class="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-400">Отзывов на Яндекс.Картах</span>
               <span
-                class="text-[11px] px-2 py-0.5 rounded-full bg-slate-200/80 dark:bg-slate-600 font-medium text-slate-700 dark:text-slate-200"
+                class="text-[11px] px-2 py-0.5 rounded-full bg-slate-200/80 dark:bg-slate-700 font-medium text-slate-700 dark:text-slate-200"
                 title="Количество отзывов, сохраненных в базу сервиса"
               >
                 В базе: {{ meta.total.toLocaleString('ru-RU') }}
@@ -497,7 +497,7 @@ onUnmounted(() => {
               <span class="text-3xl font-extrabold text-slate-900 dark:text-white tabular-nums">
                 {{ organization.reviews_count.toLocaleString('ru-RU') }}
               </span>
-              <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              <p class="text-xs text-slate-500 dark:text-slate-300 mt-1">
                 Всего отзывов на карточке Яндекс.Карт
               </p>
             </div>
