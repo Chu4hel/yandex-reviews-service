@@ -5,8 +5,20 @@ import type { PaginatedReviewsResponse } from '@/types/review'
 import type { OrganizationSnapshot } from '@/types/snapshot'
 import type { ProxyServerItem, SystemSettingsData } from '@/types/admin'
 
+const resolveBaseUrl = (): string => {
+  const envUrl = import.meta.env.VITE_API_URL
+  if (!envUrl) {
+    return '/api'
+  }
+  const trimmed = envUrl.trim()
+  if (trimmed === '') {
+    return '/api'
+  }
+  return trimmed.endsWith('/api') ? trimmed : `${trimmed.replace(/\/+$/, '')}/api`
+}
+
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ?? '/api',
+  baseURL: resolveBaseUrl(),
   headers: {
     'Content-Type': 'application/json',
     Accept: 'application/json',
