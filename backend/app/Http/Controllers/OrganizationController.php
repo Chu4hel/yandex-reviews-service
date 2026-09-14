@@ -18,6 +18,8 @@ use App\Services\OrganizationSyncService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class OrganizationController extends Controller
 {
@@ -209,5 +211,75 @@ class OrganizationController extends Controller
         return response()->json([
             'data' => OrganizationSnapshotResource::collection($snapshots),
         ]);
+    }
+
+    /**
+     * Export reviews to CSV (formatted with UTF-8 BOM for Microsoft Excel).
+     */
+    public function export(Organization $organization, Request $request): StreamedResponse
+    {
+        $query = $organization->reviews();
+
+        if ($request->has('rating') && is_numeric($request->input('rating'))) {
+            $rating = (int) $request->input('rating');
+            if ($rating >= 1 && $rating <= 5) {
+                $query->where('rating', $rating);
+            }
+        }
+
+        $query->orderBy('published_at', 'desc');
+
+        $slug = Str::slug($organization->name ?: 'organization');
+        $fileName = sprintf('reviews_%s_%s.csv', $slug, now()->format('Y-m-d_His'));
+
+        $headers = [
+            'Content-Type' => 'text/csv; charset=UTF-8',
+            'Content-Disposition' => "attachment; filename=\"{$fileName}\"",
+            'Pragma' => 'no-cache',
+            'Cache-Control' => 'must-revalidate, post-check=0, pre-check=0',
+            'Expires' => '0',
+        ];
+
+        return response()->stream(function () use ($query) {
+            $handle = fopen('php://output', 'w');
+            if ($handle === false) {
+                return;
+            }
+
+            // UTF-8 BOM for Excel Cyrillic compatibility
+            fwrite($handle, "\xEF\xBB\xBF");
+
+            // CSV Header row
+            fputcsv($handle, [
+                'ID отзыва Яндекса',
+                'Автор',
+                'Статус автора',
+                'Оценка (звёзды)',
+                'Дата публикации',
+                'Текст отзыва',
+                'Есть ответ компании',
+                'Текст ответа компании',
+                'Дата ответа компании',
+            ], ';');
+
+            // Stream reviews in chunks to preserve memory
+            $query->chunk(200, function ($reviews) use ($handle) {
+                foreach ($reviews as $review) {
+                    fputcsv($handle, [
+                        $review->yandex_review_id,
+                        $review->author_name ?? 'Пользователь',
+                        $review->author_level ?? '',
+                        (string) $review->rating,
+                        $review->published_at ? $review->published_at->format('Y-m-d H:i:s') : '',
+                        str_replace(["\r\n", "\r"], "\n", (string) ($review->text ?? '')),
+                        ! empty($review->business_response_text) ? 'Да' : 'Нет',
+                        str_replace(["\r\n", "\r"], "\n", (string) ($review->business_response_text ?? '')),
+                        $review->business_response_at ? $review->business_response_at->format('Y-m-d H:i:s') : '',
+                    ], ';');
+                }
+            });
+
+            fclose($handle);
+        }, 200, $headers);
     }
 }

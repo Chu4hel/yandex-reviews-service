@@ -111,6 +111,19 @@ export const getOrganizationSnapshotsApi = async (id: number): Promise<{ data: O
   return response.data
 }
 
+export const exportOrganizationReviewsApi = async (id: number, rating?: number): Promise<Blob> => {
+  const params: Record<string, string | number> = {}
+  if (rating !== undefined && rating > 0) {
+    params.rating = rating
+  }
+  const response = await api.get(`/organizations/${id}/export`, {
+    params,
+    responseType: 'blob',
+  })
+  return response.data as Blob
+}
+
+
 // Admin API
 export const getAdminSettingsApi = async (): Promise<SystemSettingsData> => {
   const response = await api.get<SystemSettingsData>('/admin/settings')

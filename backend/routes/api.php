@@ -34,6 +34,7 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->prefix('organizations')->gr
     Route::post('/{organization}/sync', [OrganizationController::class, 'sync'])->middleware('throttle:sync-organizations');
     Route::get('/{organization}/reviews', [OrganizationController::class, 'reviews']);
     Route::get('/{organization}/snapshots', [OrganizationController::class, 'snapshots']);
+    Route::get('/{organization}/export', [OrganizationController::class, 'export']);
 });
 
 // Administrative routes (protected with admin.access: user.is_admin OR X-Admin-Key)
