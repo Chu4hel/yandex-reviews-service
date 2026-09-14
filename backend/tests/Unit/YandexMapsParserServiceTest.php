@@ -86,7 +86,7 @@ class YandexMapsParserServiceTest extends TestCase
                                             'reviewId' => 'rev-001',
                                             'author' => [
                                                 'name' => 'Иван Иванов',
-                                                'avatarUrl' => 'https://avatars.mds.yandex.net/get-yapic/0/0-0/islands-middle',
+                                                'avatarUrl' => 'https://avatars.mds.yandex.net/get-yapic/0/0-0/{size}',
                                                 'professionLevel' => 'Знаток города 5 уровня',
                                             ],
                                             'rating' => 5,
@@ -127,6 +127,7 @@ class YandexMapsParserServiceTest extends TestCase
         $firstReview = $dto->initialReviews[0];
         $this->assertSame('rev-001', $firstReview->yandexReviewId);
         $this->assertSame('Иван Иванов', $firstReview->authorName);
+        $this->assertSame('https://avatars.mds.yandex.net/get-yapic/0/0-0/islands-middle', $firstReview->authorAvatarUrl);
         $this->assertSame(5, $firstReview->rating);
         $this->assertSame('Спасибо за отзыв! Рады стараться.', $firstReview->businessResponseText);
     }

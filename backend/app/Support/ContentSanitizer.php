@@ -73,6 +73,16 @@ class ContentSanitizer
             return null;
         }
 
+        // Нормализация protocol-relative URL (напр., //avatars.mds.yandex.net/...)
+        if (str_starts_with($trimmed, '//')) {
+            $trimmed = 'https:'.$trimmed;
+        }
+
+        // Разрешение шаблона {size} для аватарок Яндекс Yapic
+        if (str_contains($trimmed, '{size}')) {
+            $trimmed = str_replace('{size}', 'islands-middle', $trimmed);
+        }
+
         // Блокировка опасных псевдопротоколов
         if (preg_match('/^(?:javascript|data|vbscript):/i', $trimmed)) {
             return null;

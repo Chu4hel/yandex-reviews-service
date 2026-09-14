@@ -66,5 +66,12 @@ class ContentSanitizerTest extends TestCase
 
         $validUrl = 'https://avatars.mds.yandex.net/get-yapic/12345/enc-avatar/islands-middle';
         $this->assertSame($validUrl, ContentSanitizer::sanitizeUrl($validUrl));
+
+        // Нормализация протокола и шаблона размера {size}
+        $templateUrl = 'https://avatars.mds.yandex.net/get-yapic/59871/0o-7/{size}';
+        $this->assertSame('https://avatars.mds.yandex.net/get-yapic/59871/0o-7/islands-middle', ContentSanitizer::sanitizeUrl($templateUrl));
+
+        $relativeUrl = '//avatars.mds.yandex.net/get-yapic/59871/0o-7/islands-middle';
+        $this->assertSame('https://avatars.mds.yandex.net/get-yapic/59871/0o-7/islands-middle', ContentSanitizer::sanitizeUrl($relativeUrl));
     }
 }

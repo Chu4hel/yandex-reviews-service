@@ -387,10 +387,23 @@ class YandexMapsParserService implements YandexParserInterface
             $photos = ! empty($parsedPhotos) ? $parsedPhotos : null;
         }
 
+        $rawAvatar = ! empty($author['avatarUrl'])
+            ? (string) $author['avatarUrl']
+            : (! empty($author['avatarUrlTemplate']) ? (string) $author['avatarUrlTemplate'] : null);
+
+        $avatarUrl = null;
+        if ($rawAvatar !== null && trim($rawAvatar) !== '') {
+            $cleanAvatar = trim($rawAvatar);
+            if (str_starts_with($cleanAvatar, '//')) {
+                $cleanAvatar = 'https:'.$cleanAvatar;
+            }
+            $avatarUrl = str_replace('{size}', 'islands-middle', $cleanAvatar);
+        }
+
         return new ParsedReviewDto(
             yandexReviewId: (string) ($raw['reviewId'] ?? md5((string) json_encode($raw))),
             authorName: isset($author['name']) ? (string) $author['name'] : 'Пользователь',
-            authorAvatarUrl: ! empty($author['avatarUrl']) ? (string) $author['avatarUrl'] : null,
+            authorAvatarUrl: $avatarUrl,
             authorLevel: isset($author['professionLevel']) ? (string) $author['professionLevel'] : (isset($author['rtb']) ? (string) $author['rtb'] : null),
             rating: (int) ($raw['rating'] ?? 5),
             text: isset($raw['text']) ? (string) $raw['text'] : null,
