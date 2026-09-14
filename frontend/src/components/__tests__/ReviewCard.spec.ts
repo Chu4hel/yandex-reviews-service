@@ -115,5 +115,37 @@ describe('ReviewCard.vue', () => {
 
     await photoButtons[0].trigger('click')
   })
+
+  it('truncates very long review and toggles expansion on button click', async () => {
+    const longText = 'Это очень длинный отзыв о заведении. '.repeat(15) // ~555 символов
+    const longReview: Review = {
+      ...baseReview,
+      text: longText,
+    }
+
+    const wrapper = mount(ReviewCard, {
+      props: {
+        review: longReview,
+      },
+    })
+
+    // В свернутом состоянии текст укорочен и есть кнопка "Показать полностью"
+    expect(wrapper.text()).toContain('Показать полностью')
+    expect(wrapper.text()).toContain('...')
+    expect(wrapper.text()).not.toContain(longText)
+
+    // Кликаем "Показать полностью"
+    const toggleButton = wrapper.find('button.text-red-600')
+    expect(toggleButton.exists()).toBe(true)
+    await toggleButton.trigger('click')
+
+    // Теперь текст развернут полностью и кнопка сменилась на "Свернуть"
+    expect(wrapper.text()).toContain('Свернуть')
+    expect(wrapper.text()).toContain(longText)
+
+    // Кликаем "Свернуть"
+    await toggleButton.trigger('click')
+    expect(wrapper.text()).toContain('Показать полностью')
+  })
 })
 

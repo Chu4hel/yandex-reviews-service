@@ -109,6 +109,42 @@ const formattedResponseDate = computed<string>(() => {
     return props.review.business_response_at
   }
 })
+
+const TEXT_COLLAPSE_THRESHOLD = 320
+const isTextExpanded = ref<boolean>(false)
+const isResponseExpanded = ref<boolean>(false)
+
+const isTextLong = computed<boolean>(() => {
+  return (props.review.text?.length ?? 0) > TEXT_COLLAPSE_THRESHOLD
+})
+
+const displayedReviewText = computed<string>(() => {
+  const full = props.review.text ?? ''
+  if (!isTextLong.value || isTextExpanded.value) {
+    return full
+  }
+  const slice = full.slice(0, TEXT_COLLAPSE_THRESHOLD)
+  const lastSpace = slice.lastIndexOf(' ')
+  const cleanSlice = lastSpace > 200 ? slice.slice(0, lastSpace) : slice
+  return cleanSlice.trimEnd() + '...'
+})
+
+const isResponseLong = computed<boolean>(() => {
+  return (props.review.business_response_text?.length ?? 0) > TEXT_COLLAPSE_THRESHOLD
+})
+
+const displayedResponseText = computed<string>(() => {
+  const full = props.review.business_response_text ?? ''
+  if (!isResponseLong.value || isResponseExpanded.value) {
+    return full
+  }
+  const slice = full.slice(0, TEXT_COLLAPSE_THRESHOLD)
+  const lastSpace = slice.lastIndexOf(' ')
+  const cleanSlice = lastSpace > 200 ? slice.slice(0, lastSpace) : slice
+  return cleanSlice.trimEnd() + '...'
+})
+
+const hasAvatarLoadError = ref<boolean>(false)
 </script>
 
 <template>
@@ -119,12 +155,13 @@ const formattedResponseDate = computed<string>(() => {
         <!-- Avatar -->
         <div class="w-10 h-10 rounded-full overflow-hidden shrink-0 bg-gradient-to-tr from-indigo-500 to-purple-600 flex items-center justify-center text-white font-semibold text-sm shadow-xs">
           <img
-            v-if="review.author_avatar_url"
+            v-if="review.author_avatar_url && !hasAvatarLoadError"
             :src="review.author_avatar_url"
             :alt="review.author_name ?? 'Аватар'"
             class="w-full h-full object-cover"
             loading="lazy"
-            @error="(e) => ((e.target as HTMLElement).style.display = 'none')"
+            referrerpolicy="no-referrer"
+            @error="hasAvatarLoadError = true"
           />
           <span v-else>{{ authorInitials }}</span>
         </div>
@@ -153,12 +190,33 @@ const formattedResponseDate = computed<string>(() => {
 
     <!-- Review Text -->
     <div class="mt-4 text-sm leading-relaxed text-slate-700 dark:text-slate-300 break-words whitespace-pre-line">
-      <p v-if="review.text">
-        <template v-for="(part, idx) in getHighlightedParts(review.text)" :key="idx">
-          <mark v-if="part.isMatch" class="bg-amber-200/90 dark:bg-amber-800/80 text-amber-950 dark:text-amber-100 px-0.5 rounded-xs font-semibold">{{ part.text }}</mark>
-          <template v-else>{{ part.text }}</template>
-        </template>
-      </p>
+      <div v-if="review.text">
+        <p>
+          <template v-for="(part, idx) in getHighlightedParts(displayedReviewText)" :key="idx">
+            <mark v-if="part.isMatch" class="bg-amber-200/90 dark:bg-amber-800/80 text-amber-950 dark:text-amber-100 px-0.5 rounded-xs font-semibold">{{ part.text }}</mark>
+            <template v-else>{{ part.text }}</template>
+          </template>
+        </p>
+
+        <!-- Кнопка «Показать полностью / Свернуть» -->
+        <button
+          v-if="isTextLong"
+          type="button"
+          @click="isTextExpanded = !isTextExpanded"
+          class="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition cursor-pointer"
+        >
+          <span>{{ isTextExpanded ? 'Свернуть' : 'Показать полностью' }}</span>
+          <svg
+            class="w-3.5 h-3.5 transition-transform duration-200"
+            :class="{ 'rotate-180': isTextExpanded }"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+      </div>
       <p v-else class="text-slate-400 dark:text-slate-500 italic">Пользователь поставил оценку без текстового комментария.</p>
     </div>
 
@@ -206,12 +264,32 @@ const formattedResponseDate = computed<string>(() => {
           {{ formattedResponseDate }}
         </time>
       </div>
-      <p class="text-slate-700 dark:text-slate-200 mt-1 leading-normal whitespace-pre-line">
-        <template v-for="(part, idx) in getHighlightedParts(review.business_response_text)" :key="idx">
-          <mark v-if="part.isMatch" class="bg-amber-200/90 dark:bg-amber-800/80 text-amber-950 dark:text-amber-100 px-0.5 rounded-xs font-semibold">{{ part.text }}</mark>
-          <template v-else>{{ part.text }}</template>
-        </template>
-      </p>
+      <div>
+        <p class="text-slate-700 dark:text-slate-200 mt-1 leading-normal whitespace-pre-line">
+          <template v-for="(part, idx) in getHighlightedParts(displayedResponseText)" :key="idx">
+            <mark v-if="part.isMatch" class="bg-amber-200/90 dark:bg-amber-800/80 text-amber-950 dark:text-amber-100 px-0.5 rounded-xs font-semibold">{{ part.text }}</mark>
+            <template v-else>{{ part.text }}</template>
+          </template>
+        </p>
+
+        <button
+          v-if="isResponseLong"
+          type="button"
+          @click="isResponseExpanded = !isResponseExpanded"
+          class="mt-1.5 inline-flex items-center gap-1 text-[11px] font-semibold text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300 transition cursor-pointer"
+        >
+          <span>{{ isResponseExpanded ? 'Свернуть' : 'Показать полностью' }}</span>
+          <svg
+            class="w-3 h-3 transition-transform duration-200"
+            :class="{ 'rotate-180': isResponseExpanded }"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+      </div>
     </div>
 
     <!-- Lightbox Modal for Fullscreen Photos -->
