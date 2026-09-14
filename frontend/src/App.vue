@@ -2,6 +2,7 @@
 import { RouterLink, RouterView, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import ToastContainer from '@/components/ToastContainer.vue'
+import ThemeToggle from '@/components/ThemeToggle.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -63,8 +64,10 @@ const handleLogout = async (): Promise<void> => {
           </RouterLink>
         </nav>
 
-        <!-- Right Side: User Profile & Logout -->
-        <div class="flex items-center gap-4">
+        <!-- Right Side: Theme, User Profile & Logout -->
+        <div class="flex items-center gap-3 sm:gap-4">
+          <ThemeToggle />
+
           <template v-if="authStore.isAuthenticated">
             <div class="hidden sm:flex flex-col text-right">
               <span class="text-xs font-semibold text-slate-900 dark:text-white">
