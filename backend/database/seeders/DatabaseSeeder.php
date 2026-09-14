@@ -51,21 +51,96 @@ class DatabaseSeeder extends Seeder
             $org->update(['name' => 'Додо Пицца (Демо-стенд)']);
         }
 
-        // 3. Создание начальных снимков репутации
-        OrganizationSnapshot::firstOrCreate(
-            ['organization_id' => $org->id],
+        // 3. Создание реалистичной истории снимков репутации за последние 60 дней для наглядного графика изменений
+        $snapshotsData = [
+            [
+                'rating_before' => 4.68,
+                'rating_after' => 4.72,
+                'ratings_count_before' => 2120,
+                'ratings_count_after' => 2200,
+                'reviews_count_before' => 1590,
+                'reviews_count_after' => 1650,
+                'new_reviews_added' => 60,
+                'updated_reviews_count' => 5,
+                'snapshot_at' => now()->subDays(60),
+            ],
+            [
+                'rating_before' => 4.72,
+                'rating_after' => 4.75,
+                'ratings_count_before' => 2200,
+                'ratings_count_after' => 2310,
+                'reviews_count_before' => 1650,
+                'reviews_count_after' => 1715,
+                'new_reviews_added' => 65,
+                'updated_reviews_count' => 8,
+                'snapshot_at' => now()->subDays(50),
+            ],
+            [
+                'rating_before' => 4.75,
+                'rating_after' => 4.78,
+                'ratings_count_before' => 2310,
+                'ratings_count_after' => 2420,
+                'reviews_count_before' => 1715,
+                'reviews_count_after' => 1780,
+                'new_reviews_added' => 65,
+                'updated_reviews_count' => 10,
+                'snapshot_at' => now()->subDays(40),
+            ],
+            [
+                'rating_before' => 4.78,
+                'rating_after' => 4.82,
+                'ratings_count_before' => 2420,
+                'ratings_count_after' => 2510,
+                'reviews_count_before' => 1780,
+                'reviews_count_after' => 1835,
+                'new_reviews_added' => 55,
+                'updated_reviews_count' => 7,
+                'snapshot_at' => now()->subDays(30),
+            ],
+            [
+                'rating_before' => 4.82,
+                'rating_after' => 4.85,
+                'ratings_count_before' => 2510,
+                'ratings_count_after' => 2600,
+                'reviews_count_before' => 1835,
+                'reviews_count_after' => 1890,
+                'new_reviews_added' => 55,
+                'updated_reviews_count' => 9,
+                'snapshot_at' => now()->subDays(20),
+            ],
             [
                 'rating_before' => 4.85,
+                'rating_after' => 4.88,
+                'ratings_count_before' => 2600,
+                'ratings_count_after' => 2690,
+                'reviews_count_before' => 1890,
+                'reviews_count_after' => 1945,
+                'new_reviews_added' => 55,
+                'updated_reviews_count' => 12,
+                'snapshot_at' => now()->subDays(10),
+            ],
+            [
+                'rating_before' => 4.88,
                 'rating_after' => 4.90,
-                'ratings_count_before' => 2650,
+                'ratings_count_before' => 2690,
                 'ratings_count_after' => 2774,
-                'reviews_count_before' => 1900,
+                'reviews_count_before' => 1945,
                 'reviews_count_after' => 1990,
-                'new_reviews_added' => 90,
-                'updated_reviews_count' => 10,
+                'new_reviews_added' => 45,
+                'updated_reviews_count' => 15,
                 'snapshot_at' => now()->subDay(),
-            ]
-        );
+            ],
+        ];
+
+        foreach ($snapshotsData as $item) {
+            OrganizationSnapshot::firstOrCreate(
+                [
+                    'organization_id' => $org->id,
+                    'snapshot_at' => $item['snapshot_at'],
+                ],
+                $item
+            );
+        }
 
         // 4. Заполнение демонстрационными отзывами (55 отзывов для полноценной проверки пагинации по 50 на страницу, фильтров и полнотекстового поиска)
         $sampleReviews = [

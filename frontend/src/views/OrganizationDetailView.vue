@@ -710,7 +710,7 @@ onUnmounted(() => {
       <!-- TAB 2: SNAPSHOTS HISTORY -->
       <div v-else-if="activeTab === 'snapshots'" class="space-y-6">
         <!-- Visual Reputation Trend Chart -->
-        <ReputationTrendChart v-if="snapshots.length > 0" :snapshots="snapshots" />
+        <ReputationTrendChart :snapshots="snapshots" />
 
         <div class="bg-white dark:bg-slate-800 rounded-2xl p-6 border border-slate-200/80 dark:border-slate-700 shadow-sm">
           <h3 class="text-base font-bold text-slate-900 dark:text-white mb-2">История снимков синхронизации (было → стало)</h3>

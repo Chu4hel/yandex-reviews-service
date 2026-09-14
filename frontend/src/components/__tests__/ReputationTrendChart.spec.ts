@@ -73,4 +73,38 @@ describe('ReputationTrendChart.vue', () => {
     const paths = wrapper.findAll('path')
     expect(paths.length).toBeGreaterThanOrEqual(2)
   })
+
+  it('switches metric mode between rating and reviews', async () => {
+    const wrapper = mount(ReputationTrendChart, {
+      props: {
+        snapshots: mockSnapshots,
+      },
+    })
+
+    expect(wrapper.text()).toContain('Динамика рейтинга организации во времени')
+
+    const reviewsBtn = wrapper.findAll('button').find((b) => b.text().includes('Отзывы'))
+    expect(reviewsBtn).toBeDefined()
+    await reviewsBtn?.trigger('click')
+
+    expect(wrapper.text()).toContain('Рост общего количества отзывов во времени')
+  })
+
+  it('activates demo mode when demo button clicked', async () => {
+    const wrapper = mount(ReputationTrendChart, {
+      props: {
+        snapshots: [],
+      },
+    })
+
+    expect(wrapper.text()).toContain('В истории карточки пока нет сохраненных снимков')
+
+    const demoBtn = wrapper.findAll('button').find((b) => b.text().includes('Пример графика'))
+    expect(demoBtn).toBeDefined()
+    await demoBtn?.trigger('click')
+
+    expect(wrapper.text()).toContain('Демо-пример (60 дней)')
+    expect(wrapper.text()).toContain('4.9★')
+  })
 })
+
