@@ -85,4 +85,42 @@ class ContentSanitizer
 
         return filter_var($trimmed, FILTER_VALIDATE_URL) ? $trimmed : null;
     }
+
+    /**
+     * Санитизация массива фотографий отзыва.
+     * Проверяет безопасность URL превью и полного изображения.
+     *
+     * @param  array<mixed>|null  $photos
+     * @return array<int, array{id: string, preview_url: string, full_url: string}>|null
+     */
+    public static function sanitizePhotos(?array $photos): ?array
+    {
+        if (empty($photos)) {
+            return null;
+        }
+
+        $sanitized = [];
+
+        foreach ($photos as $photo) {
+            if (! is_array($photo)) {
+                continue;
+            }
+
+            $id = isset($photo['id']) ? self::sanitizePlainText((string) $photo['id']) : null;
+            $previewUrl = isset($photo['preview_url']) ? self::sanitizeUrl((string) $photo['preview_url']) : null;
+            $fullUrl = isset($photo['full_url']) ? self::sanitizeUrl((string) $photo['full_url']) : null;
+
+            if ($previewUrl === null && $fullUrl === null) {
+                continue;
+            }
+
+            $sanitized[] = [
+                'id' => $id ?? md5(($previewUrl ?? '') . ($fullUrl ?? '')),
+                'preview_url' => $previewUrl ?? $fullUrl ?? '',
+                'full_url' => $fullUrl ?? $previewUrl ?? '',
+            ];
+        }
+
+        return ! empty($sanitized) ? $sanitized : null;
+    }
 }

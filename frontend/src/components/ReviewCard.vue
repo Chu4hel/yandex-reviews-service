@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import type { Review } from '@/types/review'
 import RatingStars from './RatingStars.vue'
+import PhotoLightboxModal from './PhotoLightboxModal.vue'
 
 interface Props {
   review: Review
@@ -11,6 +12,14 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), {
   searchTerm: '',
 })
+
+const isLightboxOpen = ref<boolean>(false)
+const selectedPhotoIndex = ref<number>(0)
+
+const openLightbox = (index: number): void => {
+  selectedPhotoIndex.value = index
+  isLightboxOpen.value = true
+}
 
 interface TextPart {
   text: string
@@ -153,6 +162,34 @@ const formattedResponseDate = computed<string>(() => {
       <p v-else class="text-slate-400 dark:text-slate-500 italic">Пользователь поставил оценку без текстового комментария.</p>
     </div>
 
+    <!-- Review Photos Gallery -->
+    <div v-if="review.photos && review.photos.length > 0" class="mt-3.5">
+      <div class="flex flex-wrap gap-2">
+        <button
+          v-for="(photo, pIdx) in review.photos"
+          :key="photo.id || pIdx"
+          type="button"
+          @click="openLightbox(pIdx)"
+          class="relative group w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-900 cursor-pointer focus:outline-hidden focus:ring-2 focus:ring-red-500 shadow-2xs"
+          :title="`Открыть фото ${pIdx + 1}`"
+          :aria-label="`Просмотреть фото ${pIdx + 1}`"
+        >
+          <img
+            :src="photo.preview_url || photo.full_url"
+            alt="Фото к отзыву"
+            class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+            loading="lazy"
+            referrerpolicy="no-referrer"
+          />
+          <div class="absolute inset-0 bg-black/0 group-hover:bg-black/25 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+            <svg class="w-5 h-5 text-white drop-shadow-xs" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0zM10 7v6m3-3H7" />
+            </svg>
+          </div>
+        </button>
+      </div>
+    </div>
+
     <!-- Official Organization Response -->
     <div
       v-if="review.business_response_text"
@@ -176,5 +213,14 @@ const formattedResponseDate = computed<string>(() => {
         </template>
       </p>
     </div>
+
+    <!-- Lightbox Modal for Fullscreen Photos -->
+    <PhotoLightboxModal
+      v-if="review.photos && review.photos.length > 0"
+      :is-open="isLightboxOpen"
+      :photos="review.photos"
+      :initial-index="selectedPhotoIndex"
+      @close="isLightboxOpen = false"
+    />
   </article>
 </template>

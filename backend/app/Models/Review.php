@@ -22,6 +22,7 @@ use Illuminate\Support\Facades\DB;
  * @property string|null $author_level
  * @property int $rating
  * @property string|null $text
+ * @property array<int, array{id: string, preview_url: string, full_url: string}>|null $photos
  * @property Carbon|null $published_at
  * @property string|null $business_response_text
  * @property Carbon|null $business_response_at
@@ -40,6 +41,7 @@ class Review extends Model
         'author_level',
         'rating',
         'text',
+        'photos',
         'published_at',
         'business_response_text',
         'business_response_at',
@@ -49,6 +51,7 @@ class Review extends Model
     {
         return [
             'rating' => 'integer',
+            'photos' => 'array',
             'published_at' => 'datetime',
             'business_response_at' => 'datetime',
         ];

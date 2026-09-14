@@ -81,4 +81,39 @@ describe('ReviewCard.vue', () => {
     expect(html).toContain('<mark class="bg-amber-200/90 dark:bg-amber-800/80 text-amber-950 dark:text-amber-100 px-0.5 rounded-xs font-semibold">пицца</mark>')
     expect(html).toContain('<mark class="bg-amber-200/90 dark:bg-amber-800/80 text-amber-950 dark:text-amber-100 px-0.5 rounded-xs font-semibold">теплый</mark>')
   })
+
+  it('renders photo thumbnails and opens lightbox when clicked', async () => {
+    const reviewWithPhotos: Review = {
+      ...baseReview,
+      photos: [
+        {
+          id: 'p1',
+          preview_url: 'https://avatars.mds.yandex.net/get-altay/1/L',
+          full_url: 'https://avatars.mds.yandex.net/get-altay/1/orig',
+        },
+        {
+          id: 'p2',
+          preview_url: 'https://avatars.mds.yandex.net/get-altay/2/L',
+          full_url: 'https://avatars.mds.yandex.net/get-altay/2/orig',
+        },
+      ],
+    }
+
+    const wrapper = mount(ReviewCard, {
+      props: {
+        review: reviewWithPhotos,
+      },
+    })
+
+    const photoButtons = wrapper.findAll('button[title^="Открыть фото"]')
+    expect(photoButtons).toHaveLength(2)
+
+    const firstImg = photoButtons[0].find('img')
+    expect(firstImg.exists()).toBe(true)
+    expect(firstImg.attributes('src')).toBe('https://avatars.mds.yandex.net/get-altay/1/L')
+    expect(firstImg.attributes('referrerpolicy')).toBe('no-referrer')
+
+    await photoButtons[0].trigger('click')
+  })
 })
+

@@ -152,6 +152,23 @@ class DatabaseSeeder extends Seeder
                 'published_at' => now()->subHours(3),
                 'business_response_text' => 'Александр, спасибо большое за высокую оценку и теплые слова! Всегда рады видеть вас!',
                 'business_response_at' => now()->subHours(2),
+                'photos' => [
+                    [
+                        'id' => '18133168_2a0000019e18a7c84fca8116bdf7d45a46f4',
+                        'preview_url' => 'https://avatars.mds.yandex.net/get-altay/18133168/2a0000019e18a7c84fca8116bdf7d45a46f4/L',
+                        'full_url' => 'https://avatars.mds.yandex.net/get-altay/18133168/2a0000019e18a7c84fca8116bdf7d45a46f4/orig',
+                    ],
+                    [
+                        'id' => '18804755_2a0000019e18a7ad38a890cae2a789b4868b',
+                        'preview_url' => 'https://avatars.mds.yandex.net/get-altay/18804755/2a0000019e18a7ad38a890cae2a789b4868b/L',
+                        'full_url' => 'https://avatars.mds.yandex.net/get-altay/18804755/2a0000019e18a7ad38a890cae2a789b4868b/orig',
+                    ],
+                    [
+                        'id' => '20245311_2a0000019e18a7e233529d5ae99614890a1a',
+                        'preview_url' => 'https://avatars.mds.yandex.net/get-altay/20245311/2a0000019e18a7e233529d5ae99614890a1a/L',
+                        'full_url' => 'https://avatars.mds.yandex.net/get-altay/20245311/2a0000019e18a7e233529d5ae99614890a1a/orig',
+                    ],
+                ],
             ],
             [
                 'author_name' => 'Елена В.',
@@ -161,6 +178,13 @@ class DatabaseSeeder extends Seeder
                 'published_at' => now()->subDays(1),
                 'business_response_text' => 'Елена, спасибо за отзыв! Очень рады, что обед в офисе удался на славу :)',
                 'business_response_at' => now()->subDays(1)->addHours(1),
+                'photos' => [
+                    [
+                        'id' => '18804755_2a0000019e18a7ad38a890cae2a789b4868b',
+                        'preview_url' => 'https://avatars.mds.yandex.net/get-altay/18804755/2a0000019e18a7ad38a890cae2a789b4868b/L',
+                        'full_url' => 'https://avatars.mds.yandex.net/get-altay/18804755/2a0000019e18a7ad38a890cae2a789b4868b/orig',
+                    ],
+                ],
             ],
             [
                 'author_name' => 'Михаил К.',

@@ -243,4 +243,40 @@ class OrganizationApiTest extends TestCase
         $ids = collect($listResponse->json('data'))->pluck('id')->all();
         $this->assertNotContains($org->id, $ids);
     }
+
+    public function test_reviews_endpoint_returns_photos_payload(): void
+    {
+        $org = Organization::create([
+            'yandex_org_id' => '999888777',
+            'name' => 'Кафе с фото',
+            'url' => 'https://yandex.ru/maps/org/999888777/reviews/',
+            'rating' => 4.8,
+            'ratings_count' => 10,
+            'reviews_count' => 1,
+        ]);
+
+        Review::create([
+            'organization_id' => $org->id,
+            'yandex_review_id' => 'review_with_photo_1',
+            'author_name' => 'Анна',
+            'rating' => 5,
+            'text' => 'Красивое блюдо!',
+            'photos' => [
+                [
+                    'id' => 'photo_1',
+                    'preview_url' => 'https://avatars.mds.yandex.net/get-altay/123/L',
+                    'full_url' => 'https://avatars.mds.yandex.net/get-altay/123/orig',
+                ],
+            ],
+            'published_at' => now(),
+        ]);
+
+        $response = $this->withHeader('Authorization', 'Bearer '.$this->token)
+            ->getJson("/api/organizations/{$org->id}/reviews");
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.0.photos.0.id', 'photo_1')
+            ->assertJsonPath('data.0.photos.0.preview_url', 'https://avatars.mds.yandex.net/get-altay/123/L')
+            ->assertJsonPath('data.0.photos.0.full_url', 'https://avatars.mds.yandex.net/get-altay/123/orig');
+    }
 }

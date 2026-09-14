@@ -1,3 +1,9 @@
+export interface ReviewPhoto {
+  id: string
+  preview_url: string
+  full_url: string
+}
+
 export interface Review {
   id: number
   organization_id: number
@@ -7,6 +13,7 @@ export interface Review {
   author_level: string | null
   rating: number
   text: string | null
+  photos?: ReviewPhoto[] | null
   published_at: string | null
   business_response_text: string | null
   business_response_at: string | null

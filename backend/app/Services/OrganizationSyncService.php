@@ -310,6 +310,7 @@ class OrganizationSyncService
             'author_level' => ContentSanitizer::sanitizePlainText($dto->authorLevel),
             'rating' => $dto->rating,
             'text' => ContentSanitizer::sanitizeText($dto->text),
+            'photos' => ContentSanitizer::sanitizePhotos($dto->photos),
             'published_at' => $publishedAt,
             'business_response_text' => ContentSanitizer::sanitizeText($dto->businessResponseText),
             'business_response_at' => $businessResponseAt,

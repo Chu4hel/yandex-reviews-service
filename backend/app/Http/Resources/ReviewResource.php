@@ -29,6 +29,7 @@ class ReviewResource extends JsonResource
             'author_level' => $this->author_level,
             'rating' => (int) $this->rating,
             'text' => $this->text,
+            'photos' => $this->photos,
             'published_at' => $this->published_at?->toIso8601String(),
             'business_response_text' => $this->business_response_text,
             'business_response_at' => $this->business_response_at?->toIso8601String(),

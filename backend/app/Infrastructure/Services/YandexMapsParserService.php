@@ -363,6 +363,30 @@ class YandexMapsParserService implements YandexParserInterface
         $author = $raw['author'] ?? [];
         $businessComment = $raw['businessComment'] ?? null;
 
+        $photos = null;
+        if (! empty($raw['photos']) && is_array($raw['photos'])) {
+            $parsedPhotos = [];
+            foreach ($raw['photos'] as $photoItem) {
+                if (! is_array($photoItem)) {
+                    continue;
+                }
+                $template = isset($photoItem['urlTemplate']) ? (string) $photoItem['urlTemplate'] : null;
+                if (! $template) {
+                    continue;
+                }
+                $photoId = isset($photoItem['id']) ? (string) $photoItem['id'] : md5($template);
+                $previewUrl = str_replace('{size}', 'L', $template);
+                $fullUrl = str_replace('{size}', 'orig', $template);
+
+                $parsedPhotos[] = [
+                    'id' => $photoId,
+                    'preview_url' => $previewUrl,
+                    'full_url' => $fullUrl,
+                ];
+            }
+            $photos = ! empty($parsedPhotos) ? $parsedPhotos : null;
+        }
+
         return new ParsedReviewDto(
             yandexReviewId: (string) ($raw['reviewId'] ?? md5((string) json_encode($raw))),
             authorName: isset($author['name']) ? (string) $author['name'] : 'Пользователь',
@@ -373,6 +397,7 @@ class YandexMapsParserService implements YandexParserInterface
             publishedAt: isset($raw['updatedTime']) ? (string) $raw['updatedTime'] : null,
             businessResponseText: isset($businessComment['text']) ? (string) $businessComment['text'] : null,
             businessResponseAt: isset($businessComment['updatedTime']) ? (string) $businessComment['updatedTime'] : null,
+            photos: $photos,
         );
     }
 
