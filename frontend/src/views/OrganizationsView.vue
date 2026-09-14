@@ -241,14 +241,14 @@ onUnmounted(() => {
         <button
           type="button"
           @click="handleGoToAdmin"
-          class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 text-xs font-semibold transition border border-slate-200/80 dark:border-slate-700 shadow-xs cursor-pointer"
+          class="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-800 dark:text-white text-xs font-semibold transition border border-slate-300 dark:border-slate-600 shadow-xs cursor-pointer"
           :title="authStore.isAdmin ? 'Перейти в панель администратора' : 'Просмотр активного пула доступен администраторам'"
         >
-          <svg class="w-4 h-4 text-red-600 dark:text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg class="w-4 h-4 text-red-600 dark:text-red-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
           </svg>
-          <span>{{ authStore.isAdmin ? 'Управление пулом прокси' : 'Пул прокси (инфо)' }}</span>
-          <span class="text-slate-400 dark:text-slate-500">&rarr;</span>
+          <span class="text-slate-800 dark:text-white font-semibold">{{ authStore.isAdmin ? 'Управление пулом прокси' : 'Пул прокси (инфо)' }}</span>
+          <span class="text-slate-400 dark:text-slate-300 font-bold">&rarr;</span>
         </button>
       </div>
     </div>
