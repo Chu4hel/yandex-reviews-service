@@ -29,6 +29,7 @@ RUN chmod +x /usr/local/bin/entrypoint-backend.sh
 
 RUN mkdir -p database storage/framework/sessions storage/framework/views storage/framework/cache storage/logs && \
     touch database/database.sqlite && \
+    ( [ -f .env ] || cp .env.example .env ) && \
     composer run-script post-autoload-dump
 
 EXPOSE 8000
