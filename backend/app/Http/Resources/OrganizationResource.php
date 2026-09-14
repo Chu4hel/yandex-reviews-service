@@ -31,6 +31,7 @@ class OrganizationResource extends JsonResource
             'reviews_count' => (int) $this->reviews_count,
             'sync_status' => $this->sync_status,
             'sync_progress' => (int) $this->sync_progress,
+            'sync_message' => $this->sync_message,
             'last_synced_at' => $this->last_synced_at?->toIso8601String(),
             'last_sync_error' => $this->last_sync_error,
             'created_at' => $this->created_at?->toIso8601String(),

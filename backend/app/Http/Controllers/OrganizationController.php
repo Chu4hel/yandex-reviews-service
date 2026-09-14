@@ -105,6 +105,8 @@ class OrganizationController extends Controller
                 'id' => $organization->id,
                 'sync_status' => $organization->sync_status,
                 'sync_progress' => $organization->sync_progress,
+                'sync_message' => $organization->sync_message,
+                'db_reviews_count' => $organization->reviews()->count(),
                 'last_synced_at' => $organization->last_synced_at?->toIso8601String(),
                 'last_sync_error' => $organization->last_sync_error,
                 'rating' => $organization->rating,

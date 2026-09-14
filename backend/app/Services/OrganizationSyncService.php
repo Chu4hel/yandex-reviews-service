@@ -16,6 +16,7 @@ use App\Support\ContentSanitizer;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class OrganizationSyncService
 {
@@ -123,6 +124,7 @@ class OrganizationSyncService
         $organization->update([
             'sync_status' => 'syncing',
             'sync_progress' => 0,
+            'sync_message' => 'Подключение к Яндекс.Картам и получение данных...',
             'last_sync_error' => null,
         ]);
 
@@ -152,6 +154,11 @@ class OrganizationSyncService
                 $totalPagesToScan = 1;
             }
 
+            $organization->update([
+                'sync_progress' => 5,
+                'sync_message' => "Найдено {$parsedOrg->reviewsCount} отзывов ({$totalPagesToScan} стр.). Старт загрузки...",
+            ]);
+
             Log::info('OrganizationSyncService: метаданные организации обновлены, запуск постраничного сбора', [
                 'name' => $parsedOrg->name,
                 'rating' => $parsedOrg->rating,
@@ -180,8 +187,11 @@ class OrganizationSyncService
                     }
                 }
 
-                $progress = (int) round(($page / $totalPagesToScan) * 100);
-                $organization->update(['sync_progress' => min(99, $progress)]);
+                $progress = (int) round(($page / $totalPagesToScan) * 94) + 5;
+                $organization->update([
+                    'sync_progress' => min(99, $progress),
+                    'sync_message' => "Страница {$page} из {$totalPagesToScan} (сохранено: ".($newAddedCount + $updatedCount).' отзывов)...',
+                ]);
 
                 Log::info("OrganizationSyncService: обработана страница отзывов {$page}/{$totalPagesToScan}", [
                     'page' => $page,
@@ -215,15 +225,17 @@ class OrganizationSyncService
                 'snapshot_at' => now(),
             ]);
 
+            $totalSaved = Review::where('organization_id', $organization->id)->count();
+
             $organization->update([
                 'sync_status' => 'completed',
                 'sync_progress' => 100,
+                'sync_message' => "Синхронизация завершена: +{$newAddedCount} новых, {$updatedCount} обновлено (всего в базе {$totalSaved})",
                 'last_synced_at' => now(),
                 'last_sync_error' => null,
             ]);
 
             $totalDuration = round(microtime(true) - $startTime, 2);
-            $totalSaved = Review::where('organization_id', $organization->id)->count();
 
             Log::info('OrganizationSyncService: синхронизация успешно завершена', [
                 'total_duration_sec' => $totalDuration,
@@ -257,6 +269,7 @@ class OrganizationSyncService
 
             $organization->update([
                 'sync_status' => 'failed',
+                'sync_message' => 'Ошибка: '.Str::limit($e->getMessage(), 120),
                 'last_sync_error' => $e->getMessage(),
             ]);
 

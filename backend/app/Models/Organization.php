@@ -23,6 +23,7 @@ use Illuminate\Support\Carbon;
  * @property int $reviews_count
  * @property string $sync_status
  * @property int $sync_progress
+ * @property string|null $sync_message
  * @property Carbon|null $last_synced_at
  * @property string|null $last_sync_error
  * @property Carbon|null $deleted_at
@@ -44,6 +45,7 @@ class Organization extends Model
         'reviews_count',
         'sync_status',
         'sync_progress',
+        'sync_message',
         'last_synced_at',
         'last_sync_error',
     ];
