@@ -12,6 +12,7 @@ use App\Jobs\SyncOrganizationReviewsJob;
 use App\Models\Organization;
 use App\Models\OrganizationSnapshot;
 use App\Models\Review;
+use App\Support\ContentSanitizer;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -54,9 +55,9 @@ class OrganizationSyncService
         return DB::transaction(function () use ($parsedOrg, $normalizedUrl) {
             $organization = Organization::create([
                 'yandex_org_id' => $parsedOrg->yandexOrgId,
-                'name' => $parsedOrg->name,
+                'name' => ContentSanitizer::sanitizePlainText($parsedOrg->name, 'Организация'),
                 'url' => $normalizedUrl,
-                'address' => $parsedOrg->address,
+                'address' => ContentSanitizer::sanitizePlainText($parsedOrg->address),
                 'rating' => $parsedOrg->rating,
                 'ratings_count' => $parsedOrg->ratingsCount,
                 'reviews_count' => $parsedOrg->reviewsCount,
@@ -133,8 +134,8 @@ class OrganizationSyncService
             // 1. Refresh organization metadata first
             $parsedOrg = $this->parser->parseOrganization($organization->url);
             $organization->update([
-                'name' => $parsedOrg->name,
-                'address' => $parsedOrg->address,
+                'name' => ContentSanitizer::sanitizePlainText($parsedOrg->name, $organization->name),
+                'address' => ContentSanitizer::sanitizePlainText($parsedOrg->address, $organization->address),
                 'rating' => $parsedOrg->rating,
                 'ratings_count' => $parsedOrg->ratingsCount,
                 'reviews_count' => $parsedOrg->reviewsCount,
@@ -287,13 +288,13 @@ class OrganizationSyncService
             ->first();
 
         $attributes = [
-            'author_name' => $dto->authorName,
-            'author_avatar_url' => $dto->authorAvatarUrl,
-            'author_level' => $dto->authorLevel,
+            'author_name' => ContentSanitizer::sanitizePlainText($dto->authorName, 'Пользователь'),
+            'author_avatar_url' => ContentSanitizer::sanitizeUrl($dto->authorAvatarUrl),
+            'author_level' => ContentSanitizer::sanitizePlainText($dto->authorLevel),
             'rating' => $dto->rating,
-            'text' => $dto->text,
+            'text' => ContentSanitizer::sanitizeText($dto->text),
             'published_at' => $publishedAt,
-            'business_response_text' => $dto->businessResponseText,
+            'business_response_text' => ContentSanitizer::sanitizeText($dto->businessResponseText),
             'business_response_at' => $businessResponseAt,
         ];
 
