@@ -176,23 +176,18 @@ class OrganizationController extends Controller
             }
         }
 
-        // Поиск по тексту отзыва и имени автора (регистронезависимый для UTF-8 / кириллицы)
-        if ($request->filled('search')) {
-            $searchTerm = trim((string) $request->input('search'));
-            if ($searchTerm !== '') {
-                $lowered = mb_strtolower($searchTerm, 'UTF-8');
-                $escaped = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $lowered);
-                $pattern = "%{$escaped}%";
-                $query->where(function ($q) use ($pattern) {
-                    $q->whereRaw('LOWER(text) LIKE ?', [$pattern])
-                        ->orWhereRaw('LOWER(author_name) LIKE ?', [$pattern]);
-                });
-            }
+        // Полнотекстовый поиск по отзывам, авторам и ответам компании
+        $hasSearch = $request->filled('search');
+        $searchTerm = $hasSearch ? trim((string) $request->input('search')) : '';
+
+        if ($searchTerm !== '') {
+            $query->search($searchTerm);
         }
 
-        // Сортировка отзывов
+        // Сортировка отзывов (с поддержкой ранжирования по релевантности)
         $sort = $request->input('sort', 'date_desc');
         match ($sort) {
+            'relevance' => $searchTerm !== '' ? $query->reorder()->orderByRelevance($searchTerm) : $query->reorder('published_at', 'desc'),
             'date_asc' => $query->reorder('published_at', 'asc'),
             'rating_desc' => $query->reorder('rating', 'desc')->orderBy('published_at', 'desc'),
             'rating_asc' => $query->reorder('rating', 'asc')->orderBy('published_at', 'desc'),
@@ -244,13 +239,7 @@ class OrganizationController extends Controller
         if ($request->filled('search')) {
             $searchTerm = trim((string) $request->input('search'));
             if ($searchTerm !== '') {
-                $lowered = mb_strtolower($searchTerm, 'UTF-8');
-                $escaped = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $lowered);
-                $pattern = "%{$escaped}%";
-                $query->where(function ($q) use ($pattern) {
-                    $q->whereRaw('LOWER(text) LIKE ?', [$pattern])
-                        ->orWhereRaw('LOWER(author_name) LIKE ?', [$pattern]);
-                });
+                $query->search($searchTerm);
             }
         }
 
