@@ -36,7 +36,7 @@ class DatabaseSeeder extends Seeder
         $org = Organization::firstOrCreate(
             ['yandex_org_id' => '67037665858'],
             [
-                'name' => 'Додо Пицца',
+                'name' => 'Додо Пицца (Демо-стенд)',
                 'url' => 'https://yandex.ru/maps/org/dodo_pizza/67037665858/reviews/',
                 'address' => 'Москва, улица Большая Полянка, 30',
                 'rating' => 4.90,
@@ -47,6 +47,9 @@ class DatabaseSeeder extends Seeder
                 'last_synced_at' => now(),
             ]
         );
+        if ($org->name === 'Додо Пицца') {
+            $org->update(['name' => 'Додо Пицца (Демо-стенд)']);
+        }
 
         // 3. Создание начальных снимков репутации
         OrganizationSnapshot::firstOrCreate(
