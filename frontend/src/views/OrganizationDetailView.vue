@@ -222,11 +222,16 @@ const startPolling = (): void => {
       if (organization.value) {
         organization.value.sync_status = res.data.sync_status
         organization.value.sync_progress = res.data.sync_progress
+        organization.value.sync_message = res.data.sync_message
+        organization.value.db_reviews_count = res.data.db_reviews_count
         organization.value.last_synced_at = res.data.last_synced_at
         organization.value.last_sync_error = res.data.last_sync_error
         organization.value.rating = res.data.rating
         organization.value.ratings_count = res.data.ratings_count
         organization.value.reviews_count = res.data.reviews_count
+        if (typeof res.data.db_reviews_count === 'number') {
+          meta.value.total = res.data.db_reviews_count
+        }
       }
 
       if (res.data.sync_status === 'completed' || res.data.sync_status === 'failed') {
@@ -237,7 +242,7 @@ const startPolling = (): void => {
     } catch {
       stopPolling()
     }
-  }, 2500)
+  }, 1200)
 }
 
 const stopPolling = (): void => {
@@ -430,12 +435,18 @@ onUnmounted(() => {
         <!-- Sync Progress Bar -->
         <div v-if="organization.sync_status === 'syncing'" class="mt-4 p-4 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
           <div class="flex items-center justify-between text-xs font-semibold text-amber-900 dark:text-amber-200 mb-1.5">
-            <span>Выполняется фоновый парсинг отзывов организации...</span>
-            <span>{{ organization.sync_progress }}%</span>
+            <span class="flex items-center gap-2">
+              <svg class="animate-spin w-3.5 h-3.5 text-amber-600 shrink-0" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+              </svg>
+              <span>{{ organization.sync_message || 'Выполняется фоновый сбор отзывов с Яндекс.Карт...' }}</span>
+            </span>
+            <span class="font-mono font-bold">{{ organization.sync_progress }}%</span>
           </div>
-          <div class="w-full bg-amber-200 dark:bg-amber-900/60 h-2 rounded-full overflow-hidden">
+          <div class="w-full bg-amber-200 dark:bg-amber-900/60 h-2.5 rounded-full overflow-hidden">
             <div
-              class="bg-amber-500 h-2 rounded-full transition-all duration-300"
+              class="bg-gradient-to-r from-amber-500 to-red-600 h-2.5 rounded-full transition-all duration-300"
               :style="{ width: `${organization.sync_progress}%` }"
             ></div>
           </div>

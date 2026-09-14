@@ -82,6 +82,8 @@ export const useOrganizationsStore = defineStore('organizations', () => {
       if (org) {
         org.sync_status = statusData.sync_status
         org.sync_progress = statusData.sync_progress
+        org.sync_message = statusData.sync_message
+        org.db_reviews_count = statusData.db_reviews_count
         org.last_synced_at = statusData.last_synced_at
         org.last_sync_error = statusData.last_sync_error
         org.rating = statusData.rating
@@ -93,6 +95,8 @@ export const useOrganizationsStore = defineStore('organizations', () => {
       if (currentOrganization.value?.id === id) {
         currentOrganization.value.sync_status = statusData.sync_status
         currentOrganization.value.sync_progress = statusData.sync_progress
+        currentOrganization.value.sync_message = statusData.sync_message
+        currentOrganization.value.db_reviews_count = statusData.db_reviews_count
         currentOrganization.value.last_synced_at = statusData.last_synced_at
         currentOrganization.value.last_sync_error = statusData.last_sync_error
         currentOrganization.value.rating = statusData.rating

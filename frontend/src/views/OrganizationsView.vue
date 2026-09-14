@@ -77,7 +77,7 @@ const handleSubmit = async (): Promise<void> => {
 
 const triggerSync = async (id: number): Promise<void> => {
   try {
-    await store.triggerSync(id, true)
+    await store.triggerSync(id, false)
     notificationStore.success('Синхронизация запущена', 'Сбор отзывов выполняется в фоновом режиме')
     startPolling()
   } catch (err: unknown) {
@@ -133,7 +133,7 @@ const startPolling = (): void => {
         await store.updateStatus(org.id)
       }
     }
-  }, 3000)
+  }, 1500)
 }
 
 const stopPolling = (): void => {
@@ -364,8 +364,8 @@ onUnmounted(() => {
                   :style="{ width: `${org.sync_progress}%` }"
                 ></div>
               </div>
-              <span class="text-[10px] text-slate-400 block mt-1">
-                Выполняется постраничный парсинг отзывов... {{ org.sync_progress }}%
+              <span class="text-[11px] text-amber-600 dark:text-amber-400 block mt-1 font-medium truncate" :title="org.sync_message || ''">
+                {{ org.sync_message || `Сбор отзывов... ${org.sync_progress}%` }}
               </span>
             </div>
           </div>
