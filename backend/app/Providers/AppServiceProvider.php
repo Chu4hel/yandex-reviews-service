@@ -4,12 +4,17 @@ declare(strict_types=1);
 
 namespace App\Providers;
 
+use App\Domain\Contracts\CircuitBreakerInterface;
 use App\Domain\Contracts\ProxyRotatorInterface;
 use App\Domain\Contracts\YandexParserInterface;
+use App\Infrastructure\Services\CacheCircuitBreaker;
 use App\Infrastructure\Services\DatabaseProxyRotator;
 use App\Infrastructure\Services\YandexMapsParserService;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Database\Events\ConnectionEstablished;
+use Illuminate\Database\SQLiteConnection;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
@@ -20,6 +25,11 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->singleton(
+            CircuitBreakerInterface::class,
+            CacheCircuitBreaker::class
+        );
+
         $this->app->singleton(
             ProxyRotatorInterface::class,
             DatabaseProxyRotator::class
@@ -36,6 +46,16 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        // Регистрация корректной UTF-8 функции lower() для SQLite базы данных (кириллический поиск)
+        Event::listen(ConnectionEstablished::class, function (ConnectionEstablished $event): void {
+            if ($event->connection instanceof SQLiteConnection) {
+                $event->connection->getPdo()->sqliteCreateFunction(
+                    'lower',
+                    fn (?string $s): ?string => $s !== null ? mb_strtolower($s, 'UTF-8') : null,
+                    1
+                );
+            }
+        });
         RateLimiter::for('api', function (Request $request) {
             $user = $request->user();
             $identifier = $user !== null ? (string) $user->getAuthIdentifier() : (string) $request->ip();

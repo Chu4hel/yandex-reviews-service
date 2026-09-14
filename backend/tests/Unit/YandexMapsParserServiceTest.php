@@ -4,8 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
+use App\Domain\Contracts\CircuitBreakerInterface;
+use App\Domain\Contracts\ProxyRotatorInterface;
 use App\Domain\DTO\ParsedOrganizationDto;
 use App\Domain\DTO\ParsedReviewsBatchDto;
+use App\Domain\DTO\ProxyDto;
+use App\Domain\Exceptions\CircuitBreakerOpenException;
 use App\Domain\Exceptions\YandexCaptchaDetectedException;
 use App\Domain\Exceptions\YandexMarkupChangedException;
 use App\Domain\Exceptions\YandexOrganizationNotFoundException;
@@ -269,5 +273,74 @@ class YandexMapsParserServiceTest extends TestCase
         $this->expectExceptionMessage('Ошибка подключения к Яндекс.Картам');
 
         $this->service->parseOrganization('79409187372');
+    }
+
+    public function test_circuit_breaker_open_blocks_requests_immediately(): void
+    {
+        $mockBreaker = $this->createMock(CircuitBreakerInterface::class);
+        $mockBreaker->expects($this->once())
+            ->method('isAvailable')
+            ->with('yandex_maps')
+            ->willReturn(false);
+
+        $serviceWithBreaker = new YandexMapsParserService(null, $mockBreaker);
+
+        $this->expectException(CircuitBreakerOpenException::class);
+        $serviceWithBreaker->parseOrganization('79409187372');
+    }
+
+    public function test_retry_with_next_proxy_on_captcha_succeeds_on_second_attempt(): void
+    {
+        $mockRotator = $this->createMock(ProxyRotatorInterface::class);
+
+        $proxy1 = new ProxyDto(1, 'http', '192.168.1.1', 8080);
+        $proxy2 = new ProxyDto(2, 'http', '192.168.1.2', 8080);
+
+        // 1-я попытка: возвращаем proxy1, 2-я попытка: proxy2
+        $mockRotator->expects($this->exactly(2))
+            ->method('getNextProxy')
+            ->willReturnOnConsecutiveCalls($proxy1, $proxy2);
+
+        // proxy1 помечается как попавший на капчу
+        $mockRotator->expects($this->once())
+            ->method('markCaptcha')
+            ->with(1, 30);
+
+        // proxy2 помечается как успешный
+        $mockRotator->expects($this->once())
+            ->method('markSuccess')
+            ->with(2, $this->anything());
+
+        $payload = [
+            'stack' => [
+                [
+                    'results' => [
+                        'items' => [
+                            [
+                                'id' => '79409187372',
+                                'title' => 'Успешная организация',
+                                'ratingData' => ['rating' => 4.5, 'ratingsCount' => 10, 'reviewsCount' => 5],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        $htmlValid = '<html><head><script type="application/json" class="state-view">'.json_encode($payload).'</script></head></html>';
+        $htmlCaptcha = '<html><body><div class="smartcaptcha">Подтвердите, что вы не робот</div></body></html>';
+
+        // 1-й запрос возвращает капчу, 2-й — валидный HTML
+        Http::fake([
+            'https://yandex.ru/maps/org/79409187372/reviews/' => Http::sequence()
+                ->push($htmlCaptcha, 200)
+                ->push($htmlValid, 200),
+        ]);
+
+        $serviceWithRotator = new YandexMapsParserService($mockRotator);
+        $result = $serviceWithRotator->parseOrganization('79409187372');
+
+        $this->assertInstanceOf(ParsedOrganizationDto::class, $result);
+        $this->assertSame('Успешная организация', $result->name);
     }
 }

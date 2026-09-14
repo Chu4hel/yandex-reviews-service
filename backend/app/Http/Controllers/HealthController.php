@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers;
 
+use App\Domain\Contracts\CircuitBreakerInterface;
 use App\Models\ProxyServer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -133,6 +134,25 @@ class HealthController extends Controller
             ];
         } catch (\Throwable $e) {
             $checks['proxy_pool'] = [
+                'status' => 'warning',
+                'error' => $e->getMessage(),
+            ];
+        }
+
+        // 5. Диагностика предохранителя Circuit Breaker
+        try {
+            $circuitBreaker = app(CircuitBreakerInterface::class);
+            $cbState = $circuitBreaker->getState('yandex_maps');
+            $checks['circuit_breaker'] = [
+                'status' => $cbState === 'open' ? 'degraded' : 'ok',
+                'state' => $cbState,
+                'available' => $circuitBreaker->isAvailable('yandex_maps'),
+            ];
+            if ($cbState === 'open' && $overallStatus === 'healthy') {
+                $overallStatus = 'degraded';
+            }
+        } catch (\Throwable $e) {
+            $checks['circuit_breaker'] = [
                 'status' => 'warning',
                 'error' => $e->getMessage(),
             ];
