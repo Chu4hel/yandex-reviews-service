@@ -64,7 +64,7 @@ const handleSubmit = async (): Promise<void> => {
 
 const triggerSync = async (id: number): Promise<void> => {
   try {
-    await store.syncOrganization(id, true)
+    await store.triggerSync(id, true)
     notificationStore.success('Синхронизация запущена', 'Сбор отзывов выполняется в фоновом режиме')
     startPolling()
   } catch (err: unknown) {
