@@ -2,18 +2,14 @@
 
 use App\Http\Controllers\Admin\SystemSettingsController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\HealthController;
 use App\Http\Controllers\OrganizationController;
 use App\Http\Controllers\ProxyServerController;
 use Illuminate\Support\Facades\Route;
 
-// Health check
-Route::get('/health', function () {
-    return response()->json([
-        'status' => 'ok',
-        'service' => 'Yandex Reviews Service API',
-        'timestamp' => now()->toIso8601String(),
-    ]);
-});
+// Health and Readiness probes (Liveness & Deep checks)
+Route::get('/health', [HealthController::class, 'check']);
+Route::get('/health/ready', [HealthController::class, 'readiness']);
 
 // Authentication routes
 Route::prefix('auth')->group(function () {
