@@ -39,4 +39,9 @@ return [
         'api_key' => env('ADMIN_API_KEY', 'georeviews_secret_admin_key_2026'),
     ],
 
+    'yandex' => [
+        // 0 или null означает выгружать ВСЕ доступные страницы Яндекса (без ограничения в 600 отзывов)
+        'max_sync_pages' => env('YANDEX_MAX_SYNC_PAGES', 0),
+    ],
+
 ];

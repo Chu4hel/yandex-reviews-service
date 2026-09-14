@@ -23,6 +23,11 @@ class SyncOrganizationReviewsJob implements ShouldQueue
     public int $tries = 3;
 
     /**
+     * The number of seconds the job can run before timing out.
+     */
+    public int $timeout = 600;
+
+    /**
      * The number of seconds to wait before retrying the job.
      *
      * @var array<int, int>
