@@ -67,7 +67,7 @@ class ProxyAddCommand extends Command
                 $failsCount = 1;
                 $lastError = 'Карантин: обнаружена капча при тестовом пинге';
                 $avgResponseTimeMs = $ping->responseTimeMs;
-                $this->warn("! Обнаружена капча (SmartCaptcha). Прокси помещен в карантин на 30 минут.");
+                $this->warn('! Обнаружена капча (SmartCaptcha). Прокси помещен в карантин на 30 минут.');
             } else {
                 $isActive = false;
                 $failsCount = 1;

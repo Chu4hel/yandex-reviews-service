@@ -16,7 +16,7 @@ class HttpProxyChecker implements ProxyCheckerInterface
     /**
      * Выполнить тестовый пинг-запрос через указанный прокси-сервер.
      *
-     * @param array{protocol: string, host: string, port: int, username: ?string, password: ?string} $proxyConfig
+     * @param  array{protocol: string, host: string, port: int, username: ?string, password: ?string}  $proxyConfig
      */
     public function ping(array $proxyConfig, int $timeoutSeconds = 5): ProxyPingResult
     {
@@ -56,7 +56,7 @@ class HttpProxyChecker implements ProxyCheckerInterface
     /**
      * Выполнить параллельный тестовый пинг-запрос для нескольких прокси-серверов.
      *
-     * @param list<array{protocol: string, host: string, port: int, username: ?string, password: ?string}> $proxyConfigs
+     * @param  list<array{protocol: string, host: string, port: int, username: ?string, password: ?string}>  $proxyConfigs
      * @return array<int, ProxyPingResult>
      */
     public function pingMany(array $proxyConfigs, int $timeoutSeconds = 5): array
@@ -100,6 +100,7 @@ class HttpProxyChecker implements ProxyCheckerInterface
 
                 if ($resp instanceof \Throwable) {
                     $results[$index] = ProxyPingResult::failure($resp->getMessage(), $totalDurationMs);
+
                     continue;
                 }
 
@@ -133,7 +134,7 @@ class HttpProxyChecker implements ProxyCheckerInterface
     }
 
     /**
-     * @param array{protocol: string, host: string, port: int, username: ?string, password: ?string} $proxyConfig
+     * @param  array{protocol: string, host: string, port: int, username: ?string, password: ?string}  $proxyConfig
      */
     private function buildProxyOption(array $proxyConfig): string
     {

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit;
 
 use App\Infrastructure\Services\HttpProxyChecker;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
@@ -61,7 +62,7 @@ class HttpProxyCheckerTest extends TestCase
     {
         Http::fake([
             '*' => function () {
-                throw new \Illuminate\Http\Client\ConnectionException('Connection refused to proxy 1.2.3.4:8080');
+                throw new ConnectionException('Connection refused to proxy 1.2.3.4:8080');
             },
         ]);
 
