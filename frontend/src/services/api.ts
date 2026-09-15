@@ -226,6 +226,11 @@ export const deleteProxyApi = async (id: number): Promise<{ message: string }> =
   return response.data
 }
 
+export const deleteInvalidProxiesApi = async (): Promise<{ message: string; deleted_count: number }> => {
+  const response = await api.delete<{ message: string; deleted_count: number }>('/admin/proxies/invalid')
+  return response.data
+}
+
 export const pingProxyApi = async (id: number): Promise<{
   success: boolean
   is_captcha: boolean

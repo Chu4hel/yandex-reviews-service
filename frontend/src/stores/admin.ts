@@ -7,6 +7,7 @@ import {
   addProxiesApi,
   toggleProxyApi,
   deleteProxyApi,
+  deleteInvalidProxiesApi,
   pingProxyApi,
 } from '@/services/api'
 
@@ -17,6 +18,7 @@ export const useAdminStore = defineStore('admin', () => {
   const isLoadingSettings = ref<boolean>(false)
   const isLoadingProxies = ref<boolean>(false)
   const isSubmitting = ref<boolean>(false)
+  const isDeletingInvalid = ref<boolean>(false)
   const error = ref<string | null>(null)
   const actionSuccess = ref<string | null>(null)
 
@@ -127,6 +129,30 @@ export const useAdminStore = defineStore('admin', () => {
     }
   }
 
+  const deleteInvalidProxies = async (): Promise<{ success: boolean; deletedCount: number; message: string }> => {
+    isDeletingInvalid.value = true
+    error.value = null
+    try {
+      const res = await deleteInvalidProxiesApi()
+      proxies.value = proxies.value.filter((p) => p.is_active)
+      actionSuccess.value = res.message
+      await fetchSettings()
+      return { success: true, deletedCount: res.deleted_count, message: res.message }
+    } catch (err: unknown) {
+      let msg = 'Не удалось удалить невалидные прокси'
+      if (typeof err === 'object' && err !== null && 'response' in err) {
+        const axiosErr = err as { response?: { data?: { message?: string } } }
+        msg = axiosErr.response?.data?.message ?? msg
+      } else if (err instanceof Error) {
+        msg = err.message
+      }
+      error.value = msg
+      return { success: false, deletedCount: 0, message: msg }
+    } finally {
+      isDeletingInvalid.value = false
+    }
+  }
+
   const pingProxy = async (id: number): Promise<boolean> => {
     if (pingingProxyIds.value.includes(id)) {
       return false
@@ -175,6 +201,7 @@ export const useAdminStore = defineStore('admin', () => {
     isLoadingSettings,
     isLoadingProxies,
     isSubmitting,
+    isDeletingInvalid,
     error,
     actionSuccess,
     fetchSettings,
@@ -182,6 +209,7 @@ export const useAdminStore = defineStore('admin', () => {
     addProxies,
     toggleProxy,
     deleteProxy,
+    deleteInvalidProxies,
     pingProxy,
     clearMessages,
   }

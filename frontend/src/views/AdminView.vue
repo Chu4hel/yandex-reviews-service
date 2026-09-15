@@ -114,6 +114,31 @@ const handleDelete = async (id: number, host: string, port: number): Promise<voi
   }
 }
 
+const invalidProxiesCount = computed<number>(() => adminStore.proxies.filter((p) => !p.is_active).length)
+
+const handleDeleteInvalid = async (): Promise<void> => {
+  if (!hasMasterKey.value) {
+    showMasterKeyModal.value = true
+    return
+  }
+
+  if (invalidProxiesCount.value === 0) {
+    notificationStore.info('Нет невалидных прокси', 'В пуле отсутствуют отключенные прокси-серверы')
+    return
+  }
+
+  if (!confirm(`Вы действительно хотите удалить все невалидные прокси (${invalidProxiesCount.value} шт.) из пула ротации?`)) {
+    return
+  }
+
+  const result = await adminStore.deleteInvalidProxies()
+  if (result.success) {
+    notificationStore.warning('Пул очищен', result.message)
+  } else if (adminStore.error) {
+    notificationStore.error('Ошибка очистки', adminStore.error)
+  }
+}
+
 const handlePing = async (id: number, endpoint: string): Promise<void> => {
   const success = await adminStore.pingProxy(id)
   if (success) {
@@ -178,6 +203,45 @@ const formatDateTime = (dateStr: string | null): string => {
         </button>
 
         <button
+          v-if="hasMasterKey"
+          type="button"
+          @click="handleDeleteInvalid"
+          :disabled="adminStore.isDeletingInvalid || invalidProxiesCount === 0"
+          class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border text-xs font-semibold shadow-xs transition cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          :class="
+            invalidProxiesCount > 0
+              ? 'border-rose-300 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/60'
+              : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-400 dark:text-slate-500'
+          "
+          :title="invalidProxiesCount > 0 ? 'Удалить все невалидные прокси одним нажатием' : 'Невалидные прокси отсутствуют'"
+        >
+          <svg
+            v-if="adminStore.isDeletingInvalid"
+            class="w-4 h-4 animate-spin text-rose-600 dark:text-rose-400"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+          </svg>
+          <svg
+            v-else
+            class="w-4 h-4 text-rose-600 dark:text-rose-400"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+            />
+          </svg>
+          <span>Удалить невалидные ({{ invalidProxiesCount }})</span>
+        </button>
+
+        <button
           type="button"
           @click="handleRefresh"
           :disabled="adminStore.isLoadingSettings || adminStore.isLoadingProxies"
@@ -232,7 +296,7 @@ const formatDateTime = (dateStr: string | null): string => {
           </button>
         </div>
         <p class="text-xs text-slate-500 dark:text-slate-400">
-          Передача мастер-ключа снимает маскировку с логинов прокси-серверов в API. Пароли полностью скрыты из соображений безопасности.
+          Передача мастер-ключа снимает маскировку с логинов прокси-серверов в API и разрешает пакетное удаление всех невалидных прокси одним нажатием. Пароли полностью скрыты из соображений безопасности.
         </p>
         <div>
           <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
@@ -288,13 +352,13 @@ const formatDateTime = (dateStr: string | null): string => {
         <span class="text-base">{{ hasMasterKey ? '🔑' : '🛡️' }}</span>
         <div>
           <span class="font-bold">
-            {{ hasMasterKey ? 'Режим полного доступа к реквизитам:' : 'Безопасный режим защиты реквизитов:' }}
+            {{ hasMasterKey ? 'Режим полного доступа к операциям и реквизитам:' : 'Безопасный режим защиты реквизитов:' }}
           </span>
           <span class="ml-1 text-slate-600 dark:text-slate-400">
             {{
               hasMasterKey
-                ? 'Заголовок X-Admin-Key активен. Логины прокси-серверов выводятся полностью. Пароли скрыты навсегда.'
-                : 'Пароли скрыты на бэкенде, логины маскируются (u***1). Для отображения логинов без цензуры введите мастер-ключ.'
+                ? 'Заголовок X-Admin-Key активен. Доступно удаление всех невалидных прокси одним нажатием и полный просмотр логинов.'
+                : 'Пароли скрыты на бэкенде, логины маскируются (u***1). Для удаления всех невалидных прокси и отображения логинов введите мастер-ключ.'
             }}
           </span>
         </div>
@@ -560,15 +624,86 @@ const formatDateTime = (dateStr: string | null): string => {
           </button>
         </div>
 
-        <!-- Search Input -->
-        <div class="w-full md:w-72">
-          <input
-            v-model="searchQuery"
-            type="text"
-            placeholder="Поиск по IP / хосту..."
-            class="w-full px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs text-slate-800 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-red-500"
-          />
+        <!-- Search Input & Quick Action -->
+        <div class="flex items-center gap-3 w-full md:w-auto">
+          <button
+            v-if="hasMasterKey && invalidProxiesCount > 0"
+            type="button"
+            @click="handleDeleteInvalid"
+            :disabled="adminStore.isDeletingInvalid"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-rose-300 dark:border-rose-800 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-xs font-semibold shadow-xs transition cursor-pointer disabled:opacity-50 shrink-0"
+            title="Удалить все невалидные прокси одним нажатием"
+          >
+            <svg
+              v-if="adminStore.isDeletingInvalid"
+              class="w-3.5 h-3.5 animate-spin text-rose-600"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+            </svg>
+            <svg
+              v-else
+              class="w-3.5 h-3.5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+            <span>Удалить невалидные ({{ invalidProxiesCount }})</span>
+          </button>
+
+          <div class="w-full md:w-72">
+            <input
+              v-model="searchQuery"
+              type="text"
+              placeholder="Поиск по IP / хосту..."
+              class="w-full px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs text-slate-800 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-red-500"
+            />
+          </div>
         </div>
+      </div>
+
+      <!-- Disabled Tab Warning / Quick Purge Banner -->
+      <div
+        v-if="activeTab === 'disabled' && invalidProxiesCount > 0"
+        class="px-5 py-3 bg-amber-50/70 dark:bg-amber-950/20 border-b border-amber-200/60 dark:border-amber-900/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-800 dark:text-amber-300"
+      >
+        <div class="flex items-center gap-2">
+          <span>⚠️</span>
+          <span>В пуле обнаружено <strong>{{ invalidProxiesCount }}</strong> отключенных (невалидных) прокси.</span>
+        </div>
+        <button
+          v-if="hasMasterKey"
+          type="button"
+          @click="handleDeleteInvalid"
+          :disabled="adminStore.isDeletingInvalid"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs shadow-xs transition cursor-pointer disabled:opacity-50 shrink-0"
+        >
+          <svg
+            v-if="adminStore.isDeletingInvalid"
+            class="w-3.5 h-3.5 animate-spin text-white"
+            fill="none"
+            viewBox="0 0 24 24"
+          >
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+          </svg>
+          <svg v-else class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+          <span>Удалить все невалидные одним нажатием</span>
+        </button>
+        <button
+          v-else
+          type="button"
+          @click="showMasterKeyModal = true"
+          class="underline font-semibold hover:text-amber-900 dark:hover:text-amber-100 cursor-pointer text-left sm:text-right shrink-0"
+        >
+          🔑 Ввести X-Admin-Key для удаления одним нажатием
+        </button>
       </div>
 
       <!-- Table Content -->
