@@ -46,7 +46,9 @@ return [
 
     'proxy' => [
         'check_url' => env('PROXY_CHECK_URL', 'https://ya.ru'),
-        'check_timeout' => (int) env('PROXY_CHECK_TIMEOUT', 5),
+        'check_timeout' => (int) env('PROXY_CHECK_TIMEOUT', 6),
+        'connect_timeout' => (int) env('PROXY_CONNECT_TIMEOUT', 6),
+        'request_timeout' => (int) env('PROXY_REQUEST_TIMEOUT', 15),
     ],
 
 ];

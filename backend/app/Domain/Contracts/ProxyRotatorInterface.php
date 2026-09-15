@@ -28,4 +28,11 @@ interface ProxyRotatorInterface
      * Зафиксировать сетевую или HTTP-ошибку соединения через прокси.
      */
     public function markFailed(int $proxyId, string $errorMessage): void;
+
+    /**
+     * Выполнить параллельную проверку доступности пула прокси с обновлением их статусов в базе данных.
+     *
+     * @return array{total: int, active: int, disabled: int, captcha: int, duration_ms: int}
+     */
+    public function checkPool(int $timeoutSeconds = 6, bool $onlyActive = true): array;
 }

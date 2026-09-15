@@ -344,4 +344,89 @@ class YandexMapsParserServiceTest extends TestCase
         $this->assertInstanceOf(ParsedOrganizationDto::class, $result);
         $this->assertSame('Успешная организация', $result->name);
     }
+
+    public function test_fallback_to_direct_request_when_all_proxies_fail(): void
+    {
+        $mockRotator = $this->createMock(ProxyRotatorInterface::class);
+        $proxy = new ProxyDto(1, 'http', '192.168.1.1', 8080);
+
+        // 3 попытки через прокси завершаются сбоем соединения
+        $mockRotator->expects($this->exactly(3))
+            ->method('getNextProxy')
+            ->willReturn($proxy);
+
+        $mockRotator->expects($this->exactly(3))
+            ->method('markFailed')
+            ->with(1, $this->anything());
+
+        $payload = [
+            'stack' => [
+                [
+                    'results' => [
+                        'items' => [
+                            [
+                                'id' => '79409187372',
+                                'title' => 'Организация через прямой фолбэк',
+                                'ratingData' => ['rating' => 5.0, 'ratingsCount' => 1, 'reviewsCount' => 1],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+        $htmlValid = '<html><head><script type="application/json" class="state-view">'.json_encode($payload).'</script></head></html>';
+
+        $callCount = 0;
+        Http::fake(function () use (&$callCount, $htmlValid) {
+            $callCount++;
+            if ($callCount <= 3) {
+                throw new ConnectionException('Proxy connection timeout');
+            }
+
+            return Http::response($htmlValid, 200);
+        });
+
+        $serviceWithRotator = new YandexMapsParserService($mockRotator);
+        $result = $serviceWithRotator->parseOrganization('79409187372');
+
+        $this->assertInstanceOf(ParsedOrganizationDto::class, $result);
+        $this->assertSame('Организация через прямой фолбэк', $result->name);
+    }
+
+    public function test_fallback_to_direct_request_when_no_proxies_available_in_rotator(): void
+    {
+        $mockRotator = $this->createMock(ProxyRotatorInterface::class);
+
+        // Ротатор сообщает, что доступных прокси нет
+        $mockRotator->expects($this->once())
+            ->method('getNextProxy')
+            ->willReturn(null);
+
+        $payload = [
+            'stack' => [
+                [
+                    'results' => [
+                        'items' => [
+                            [
+                                'id' => '79409187372',
+                                'title' => 'Организация без прокси в пуле',
+                                'ratingData' => ['rating' => 4.9, 'ratingsCount' => 20, 'reviewsCount' => 10],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+        $htmlValid = '<html><head><script type="application/json" class="state-view">'.json_encode($payload).'</script></head></html>';
+
+        Http::fake([
+            'https://yandex.ru/maps/org/79409187372/reviews/' => Http::response($htmlValid, 200),
+        ]);
+
+        $serviceWithRotator = new YandexMapsParserService($mockRotator);
+        $result = $serviceWithRotator->parseOrganization('79409187372');
+
+        $this->assertInstanceOf(ParsedOrganizationDto::class, $result);
+        $this->assertSame('Организация без прокси в пуле', $result->name);
+    }
 }

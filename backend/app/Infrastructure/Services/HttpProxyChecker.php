@@ -18,7 +18,7 @@ class HttpProxyChecker implements ProxyCheckerInterface
      *
      * @param  array{protocol: string, host: string, port: int, username: ?string, password: ?string}  $proxyConfig
      */
-    public function ping(array $proxyConfig, int $timeoutSeconds = 5): ProxyPingResult
+    public function ping(array $proxyConfig, int $timeoutSeconds = 6): ProxyPingResult
     {
         $checkUrl = (string) config('services.proxy.check_url', 'https://ya.ru');
         $proxyUrl = $this->buildProxyOption($proxyConfig);
@@ -59,7 +59,7 @@ class HttpProxyChecker implements ProxyCheckerInterface
      * @param  list<array{protocol: string, host: string, port: int, username: ?string, password: ?string}>  $proxyConfigs
      * @return array<int, ProxyPingResult>
      */
-    public function pingMany(array $proxyConfigs, int $timeoutSeconds = 5): array
+    public function pingMany(array $proxyConfigs, int $timeoutSeconds = 6): array
     {
         if (empty($proxyConfigs)) {
             return [];

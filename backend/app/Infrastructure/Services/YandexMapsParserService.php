@@ -10,6 +10,7 @@ use App\Domain\Contracts\YandexParserInterface;
 use App\Domain\DTO\ParsedOrganizationDto;
 use App\Domain\DTO\ParsedReviewDto;
 use App\Domain\DTO\ParsedReviewsBatchDto;
+use App\Domain\DTO\ProxyDto;
 use App\Domain\Exceptions\CircuitBreakerOpenException;
 use App\Domain\Exceptions\YandexCaptchaDetectedException;
 use App\Domain\Exceptions\YandexMarkupChangedException;
@@ -193,136 +194,195 @@ class YandexMapsParserService implements YandexParserInterface
 
         $maxAttempts = ($this->proxyRotator !== null) ? 3 : 1;
         $lastException = null;
+        $usedProxy = false;
 
         for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
-            $ua = $this->getRandomUserAgent();
-            $startTime = microtime(true);
             $proxy = $this->proxyRotator?->getNextProxy();
 
+            // Если ротатор настроен, но нет доступных прокси (пул пуст или все в карантине)
+            if ($this->proxyRotator !== null && $proxy === null) {
+                Log::warning('YandexMapsParser: нет доступных активных прокси в пуле, переход к прямому подключению', [
+                    'target_url' => $targetUrl,
+                    'page' => $page,
+                    'attempt' => $attempt,
+                ]);
+                break;
+            }
+
+            if ($proxy !== null) {
+                $usedProxy = true;
+            }
+
             try {
-                $httpClient = Http::withHeaders([
-                    'User-Agent' => $ua,
-                    'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-                    'Accept-Language' => 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
-                    'Sec-Ch-Ua' => '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
-                    'Sec-Ch-Ua-Mobile' => '?0',
-                    'Sec-Ch-Ua-Platform' => '"Windows"',
-                    'Sec-Fetch-Dest' => 'document',
-                    'Sec-Fetch-Mode' => 'navigate',
-                    'Sec-Fetch-Site' => 'none',
-                    'Sec-Fetch-User' => '?1',
-                    'Upgrade-Insecure-Requests' => '1',
-                ])->timeout(20);
+                return $this->executeHttpRequest($targetUrl, $page, $proxy, $attempt, $maxAttempts);
+            } catch (YandexParserException $e) {
+                $lastException = $e;
+                if ($attempt < $maxAttempts && $proxy !== null) {
+                    usleep(200000);
 
-                if ($proxy !== null) {
-                    $httpClient = $httpClient->withOptions([
-                        'proxy' => $proxy->toHttpOption(),
-                    ]);
+                    continue;
+                }
+            } catch (\Throwable $e) {
+                $lastException = new YandexParserException("Ошибка подключения к Яндекс.Картам: {$e->getMessage()}", 0, $e);
+                if ($attempt < $maxAttempts && $proxy !== null) {
+                    usleep(200000);
+
+                    continue;
+                }
+            }
+        }
+
+        // Фолбэк на прямое подключение без прокси, если все попытки через прокси завершились неудачей
+        if ($usedProxy || $this->proxyRotator !== null) {
+            Log::info('YandexMapsParser: выполнение фолбэка на прямое подключение без прокси', [
+                'target_url' => $targetUrl,
+                'page' => $page,
+                'previous_error' => $lastException?->getMessage(),
+            ]);
+
+            try {
+                return $this->executeHttpRequest($targetUrl, $page, null, 1, 1);
+            } catch (\Throwable $fallbackEx) {
+                Log::error('YandexMapsParser: фолбэк на прямое подключение также завершился сбоем', [
+                    'target_url' => $targetUrl,
+                    'page' => $page,
+                    'error' => $fallbackEx->getMessage(),
+                ]);
+
+                if ($fallbackEx instanceof YandexParserException) {
+                    throw $fallbackEx;
                 }
 
-                $response = $httpClient->get($targetUrl);
-                $durationMs = (int) round((microtime(true) - $startTime) * 1000);
-                $html = $response->body();
+                throw new YandexParserException("Сбой при прямом подключении после отказа прокси: {$fallbackEx->getMessage()}", 0, $fallbackEx);
+            }
+        }
 
-                // 1. Детекция SmartCaptcha и антибот-проверок
-                if (str_contains($html, 'captcha-page') || str_contains($html, 'smartcaptcha') || str_contains($html, 'showcaptcha')) {
-                    if ($this->proxyRotator !== null && $proxy !== null) {
-                        $this->proxyRotator->markCaptcha($proxy->id, 30);
-                    }
-                    $this->circuitBreaker?->recordFailure('yandex_maps');
+        throw $lastException ?? new YandexParserException('Не удалось получить данные с Яндекс.Карт');
+    }
 
-                    Log::warning("YandexMapsParser: обнаружена капча (попытка {$attempt}/{$maxAttempts})", [
-                        'target_url' => $targetUrl,
-                        'page' => $page,
-                        'proxy' => $proxy ? $proxy->toMaskedString() : 'direct',
-                        'duration_ms' => $durationMs,
-                        'http_status' => $response->status(),
-                    ]);
+    /**
+     * Выполнение одного HTTP-запроса к Яндекс.Картам через прокси или напрямую.
+     *
+     * @return array<string, mixed>
+     *
+     * @throws YandexParserException
+     */
+    protected function executeHttpRequest(string $targetUrl, int $page, ?ProxyDto $proxy, int $attempt, int $maxAttempts): array
+    {
+        $ua = $this->getRandomUserAgent();
+        $startTime = microtime(true);
+        $connectTimeout = (int) config('services.proxy.connect_timeout', 6);
+        $requestTimeout = (int) config('services.proxy.request_timeout', 15);
 
-                    $lastException = new YandexCaptchaDetectedException;
+        try {
+            $httpClient = Http::withHeaders([
+                'User-Agent' => $ua,
+                'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+                'Accept-Language' => 'ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7',
+                'Sec-Ch-Ua' => '"Chromium";v="124", "Google Chrome";v="124", "Not-A.Brand";v="99"',
+                'Sec-Ch-Ua-Mobile' => '?0',
+                'Sec-Ch-Ua-Platform' => '"Windows"',
+                'Sec-Fetch-Dest' => 'document',
+                'Sec-Fetch-Mode' => 'navigate',
+                'Sec-Fetch-Site' => 'none',
+                'Sec-Fetch-User' => '?1',
+                'Upgrade-Insecure-Requests' => '1',
+            ])
+                ->timeout($requestTimeout)
+                ->withOptions([
+                    'connect_timeout' => $connectTimeout,
+                ]);
 
-                    // Если есть следующая попытка — берем следующий прокси и повторяем запрос
-                    if ($attempt < $maxAttempts) {
-                        usleep(200000);
+            if ($proxy !== null) {
+                $httpClient = $httpClient->withOptions([
+                    'proxy' => $proxy->toHttpOption(),
+                    'connect_timeout' => $connectTimeout,
+                ]);
+            }
 
-                        continue;
-                    }
+            $response = $httpClient->get($targetUrl);
+            $durationMs = (int) round((microtime(true) - $startTime) * 1000);
+            $html = $response->body();
 
-                    throw $lastException;
-                }
-
-                // 2. Извлечение серверного блока состояния state-view
-                if (! preg_match('/<script type="application\/json" class="state-view">(.*?)<\/script>/s', $html, $matches)) {
-                    $this->circuitBreaker?->recordFailure('yandex_maps');
-                    Log::error('YandexMapsParser: тег state-view не найден в ответе (возможна смена разметки)', [
-                        'target_url' => $targetUrl,
-                        'page' => $page,
-                        'proxy' => $proxy ? $proxy->toMaskedString() : 'direct',
-                        'http_status' => $response->status(),
-                        'duration_ms' => $durationMs,
-                        'html_snippet' => mb_substr($html, 0, 300),
-                    ]);
-                    throw new YandexMarkupChangedException('Не удалось найти блок данных state-view в ответе Яндекс.Карт. Возможно, изменилась вёрстка платформы.');
-                }
-
-                $decoded = json_decode($matches[1], true);
-                if (! is_array($decoded)) {
-                    $this->circuitBreaker?->recordFailure('yandex_maps');
-                    Log::error('YandexMapsParser: ошибка декодирования JSON state-view', [
-                        'target_url' => $targetUrl,
-                        'page' => $page,
-                        'proxy' => $proxy ? $proxy->toMaskedString() : 'direct',
-                        'json_error' => json_last_error_msg(),
-                    ]);
-                    throw new YandexMarkupChangedException('Ошибка декодирования встроенного JSON состояния Яндекс.Карт.');
-                }
-
-                // Успешный ответ: фиксируем в ротаторе прокси и сбрасываем счетчик Circuit Breaker
+            // 1. Детекция SmartCaptcha и антибот-проверок
+            if (str_contains($html, 'captcha-page') || str_contains($html, 'smartcaptcha') || str_contains($html, 'showcaptcha')) {
                 if ($this->proxyRotator !== null && $proxy !== null) {
-                    $this->proxyRotator->markSuccess($proxy->id, $durationMs);
+                    $this->proxyRotator->markCaptcha($proxy->id, 30);
                 }
-                $this->circuitBreaker?->recordSuccess('yandex_maps');
+                $this->circuitBreaker?->recordFailure('yandex_maps');
 
-                Log::debug('YandexMapsParser: успешно получено и декодировано состояние state-view', [
+                Log::warning("YandexMapsParser: обнаружена капча (попытка {$attempt}/{$maxAttempts})", [
+                    'target_url' => $targetUrl,
+                    'page' => $page,
+                    'proxy' => $proxy ? $proxy->toMaskedString() : 'direct',
+                    'duration_ms' => $durationMs,
+                    'http_status' => $response->status(),
+                ]);
+
+                throw new YandexCaptchaDetectedException;
+            }
+
+            // 2. Извлечение серверного блока состояния state-view
+            if (! preg_match('/<script type="application\/json" class="state-view">(.*?)<\/script>/s', $html, $matches)) {
+                $this->circuitBreaker?->recordFailure('yandex_maps');
+                Log::error('YandexMapsParser: тег state-view не найден в ответе (возможна смена разметки)', [
                     'target_url' => $targetUrl,
                     'page' => $page,
                     'proxy' => $proxy ? $proxy->toMaskedString() : 'direct',
                     'http_status' => $response->status(),
                     'duration_ms' => $durationMs,
+                    'html_snippet' => mb_substr($html, 0, 300),
                 ]);
+                throw new YandexMarkupChangedException('Не удалось найти блок данных state-view в ответе Яндекс.Карт. Возможно, изменилась вёрстка платформы.');
+            }
 
-                return $decoded;
-            } catch (YandexParserException $e) {
-                $lastException = $e;
-                if ($attempt >= $maxAttempts) {
-                    throw $e;
-                }
-            } catch (\Throwable $e) {
-                $durationMs = (int) round((microtime(true) - $startTime) * 1000);
-                if ($this->proxyRotator !== null && $proxy !== null) {
-                    $this->proxyRotator->markFailed($proxy->id, $e->getMessage());
-                }
+            $decoded = json_decode($matches[1], true);
+            if (! is_array($decoded)) {
                 $this->circuitBreaker?->recordFailure('yandex_maps');
-
-                Log::error("YandexMapsParser: сетевой сбой (попытка {$attempt}/{$maxAttempts})", [
+                Log::error('YandexMapsParser: ошибка декодирования JSON state-view', [
                     'target_url' => $targetUrl,
                     'page' => $page,
                     'proxy' => $proxy ? $proxy->toMaskedString() : 'direct',
-                    'duration_ms' => $durationMs,
-                    'error_class' => get_class($e),
-                    'error' => $e->getMessage(),
+                    'json_error' => json_last_error_msg(),
                 ]);
-
-                $lastException = new YandexParserException("Ошибка подключения к Яндекс.Картам: {$e->getMessage()}", 0, $e);
-
-                if ($attempt >= $maxAttempts) {
-                    throw $lastException;
-                }
-                usleep(200000);
+                throw new YandexMarkupChangedException('Ошибка декодирования встроенного JSON состояния Яндекс.Карт.');
             }
-        }
 
-        throw $lastException;
+            // Успешный ответ: фиксируем в ротаторе прокси и сбрасываем счетчик Circuit Breaker
+            if ($this->proxyRotator !== null && $proxy !== null) {
+                $this->proxyRotator->markSuccess($proxy->id, $durationMs);
+            }
+            $this->circuitBreaker?->recordSuccess('yandex_maps');
+
+            Log::debug('YandexMapsParser: успешно получено и декодировано состояние state-view', [
+                'target_url' => $targetUrl,
+                'page' => $page,
+                'proxy' => $proxy ? $proxy->toMaskedString() : 'direct',
+                'http_status' => $response->status(),
+                'duration_ms' => $durationMs,
+            ]);
+
+            return $decoded;
+        } catch (YandexParserException $e) {
+            throw $e;
+        } catch (\Throwable $e) {
+            $durationMs = (int) round((microtime(true) - $startTime) * 1000);
+            if ($this->proxyRotator !== null && $proxy !== null) {
+                $this->proxyRotator->markFailed($proxy->id, $e->getMessage());
+            }
+            $this->circuitBreaker?->recordFailure('yandex_maps');
+
+            Log::error("YandexMapsParser: сетевой сбой (попытка {$attempt}/{$maxAttempts})", [
+                'target_url' => $targetUrl,
+                'page' => $page,
+                'proxy' => $proxy ? $proxy->toMaskedString() : 'direct',
+                'duration_ms' => $durationMs,
+                'error_class' => get_class($e),
+                'error' => $e->getMessage(),
+            ]);
+
+            throw new YandexParserException("Ошибка подключения к Яндекс.Картам: {$e->getMessage()}", 0, $e);
+        }
     }
 
     /**

@@ -48,3 +48,18 @@ export interface SystemSettingsData {
   proxy_pool_metrics: ProxyPoolMetrics
   queue_metrics: QueueMetrics
 }
+
+export interface CheckPoolStats {
+  total: number
+  active: number
+  disabled: number
+  captcha: number
+  duration_ms: number
+}
+
+export interface CheckPoolResponse {
+  message: string
+  stats: CheckPoolStats
+  deleted_count: number
+  proxies: ProxyServerItem[]
+}

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
+use App\Domain\Contracts\ProxyCheckerInterface;
+use App\Domain\DTO\ProxyPingResult;
 use App\Infrastructure\Services\DatabaseProxyRotator;
 use App\Models\ProxyServer;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -98,39 +100,117 @@ class DatabaseProxyRotatorTest extends TestCase
         $this->assertNull($this->rotator->getNextProxy());
     }
 
-    public function test_mark_failed_puts_into_quarantine_after_5_consecutive_errors(): void
+    public function test_mark_failed_puts_into_quarantine_after_first_error(): void
     {
         $proxy = ProxyServer::create([
             'protocol' => 'http',
             'host' => '1.1.1.1',
             'port' => 8080,
             'is_active' => true,
-            'fails_count' => 4,
+            'fails_count' => 0,
         ]);
 
         $this->rotator->markFailed($proxy->id, 'Connection timeout');
 
         $fresh = $proxy->fresh();
         $this->assertNotNull($fresh);
-        $this->assertSame(5, $fresh->fails_count);
+        $this->assertSame(1, $fresh->fails_count);
         $this->assertTrue($fresh->isCoolingDown());
     }
 
-    public function test_mark_failed_deactivates_proxy_after_15_consecutive_errors(): void
+    public function test_mark_failed_deactivates_proxy_after_3_consecutive_errors(): void
     {
         $proxy = ProxyServer::create([
             'protocol' => 'http',
             'host' => '1.1.1.1',
             'port' => 8080,
             'is_active' => true,
-            'fails_count' => 14,
+            'fails_count' => 2,
         ]);
 
         $this->rotator->markFailed($proxy->id, 'Host unreachable');
 
         $fresh = $proxy->fresh();
         $this->assertNotNull($fresh);
-        $this->assertSame(15, $fresh->fails_count);
+        $this->assertSame(3, $fresh->fails_count);
         $this->assertFalse($fresh->is_active);
+    }
+
+    public function test_health_aware_selection_prioritizes_healthy_and_fast_proxies(): void
+    {
+        // Прокси с 1 ошибкой (не в кулдауне, например кулдаун истек)
+        $pError = ProxyServer::create([
+            'protocol' => 'http',
+            'host' => '1.1.1.1',
+            'port' => 8080,
+            'is_active' => true,
+            'fails_count' => 1,
+            'avg_response_time_ms' => 50,
+            'cooldown_until' => now()->subMinute(),
+        ]);
+
+        // Здоровый прокси, но медленный
+        $pSlow = ProxyServer::create([
+            'protocol' => 'http',
+            'host' => '2.2.2.2',
+            'port' => 8080,
+            'is_active' => true,
+            'fails_count' => 0,
+            'avg_response_time_ms' => 500,
+        ]);
+
+        // Здоровый и быстрый прокси
+        $pFast = ProxyServer::create([
+            'protocol' => 'http',
+            'host' => '3.3.3.3',
+            'port' => 8080,
+            'is_active' => true,
+            'fails_count' => 0,
+            'avg_response_time_ms' => 80,
+        ]);
+
+        $chosen = $this->rotator->getNextProxy();
+        $this->assertNotNull($chosen);
+        $this->assertSame($pFast->id, $chosen->id);
+    }
+
+    public function test_check_pool_updates_proxies_and_returns_stats(): void
+    {
+        $p1 = ProxyServer::create([
+            'protocol' => 'http',
+            'host' => '10.0.0.1',
+            'port' => 8080,
+            'is_active' => true,
+        ]);
+
+        $p2 = ProxyServer::create([
+            'protocol' => 'http',
+            'host' => '10.0.0.2',
+            'port' => 8080,
+            'is_active' => true,
+        ]);
+
+        $mockChecker = $this->createMock(ProxyCheckerInterface::class);
+        $mockChecker->expects($this->once())
+            ->method('pingMany')
+            ->willReturn([
+                0 => ProxyPingResult::success(120, 200),
+                1 => ProxyPingResult::failure('Connection refused', 500),
+            ]);
+
+        $rotator = new DatabaseProxyRotator($mockChecker);
+        $stats = $rotator->checkPool(6, true);
+
+        $this->assertSame(2, $stats['total']);
+        $this->assertSame(1, $stats['active']);
+        $this->assertSame(1, $stats['disabled']);
+
+        $fresh1 = $p1->fresh();
+        $this->assertTrue($fresh1->is_active);
+        $this->assertSame(120, $fresh1->avg_response_time_ms);
+
+        $fresh2 = $p2->fresh();
+        $this->assertFalse($fresh2->is_active);
+        $this->assertStringContainsString('Connection refused', (string) $fresh2->last_error);
     }
 }
