@@ -11,6 +11,8 @@ vi.mock('@/services/api', () => ({
   toggleProxyApi: vi.fn(),
   deleteProxyApi: vi.fn(),
   deleteInvalidProxiesApi: vi.fn(),
+  checkAllProxiesApi: vi.fn(),
+  verifyAdminKeyApi: vi.fn(),
   pingProxyApi: vi.fn(),
 }))
 
@@ -177,5 +179,27 @@ describe('admin store', () => {
     expect(store.proxies[0]?.id).toBe(1)
     expect(store.actionSuccess).toBe('Успешно удалено невалидных прокси: 2')
     expect(api.deleteInvalidProxiesApi).toHaveBeenCalledTimes(1)
+  })
+
+  it('checks all proxies in pool and updates store proxies list', async () => {
+    const updatedGoodProxy: ProxyServerItem = { ...mockProxy, id: 1, is_active: true, avg_response_time_ms: 90 }
+    vi.mocked(api.checkAllProxiesApi).mockResolvedValue({
+      message: 'Проверка пула завершена: 1 активно, 0 отключено',
+      stats: { total: 1, active: 1, disabled: 0, captcha: 0, duration_ms: 120 },
+      deleted_count: 0,
+      proxies: [updatedGoodProxy],
+    })
+    vi.mocked(api.getAdminSettingsApi).mockResolvedValue(mockSettings)
+
+    const store = useAdminStore()
+    store.proxies = [mockProxy]
+
+    const result = await store.checkAllProxies({ timeout: 6 })
+
+    expect(result.success).toBe(true)
+    expect(result.stats?.active).toBe(1)
+    expect(store.proxies[0]?.avg_response_time_ms).toBe(90)
+    expect(store.isCheckingPool).toBe(false)
+    expect(api.checkAllProxiesApi).toHaveBeenCalledWith({ timeout: 6, all: false, delete_dead: false })
   })
 })

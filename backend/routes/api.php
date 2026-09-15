@@ -44,6 +44,8 @@ Route::middleware(['admin.access', 'throttle:api'])->prefix('admin')->group(func
     // Управление пулом прокси (просмотр, переключение активности, удаление, тестовый пинг)
     Route::get('/proxies', [ProxyServerController::class, 'index']);
     Route::post('/proxies', [ProxyServerController::class, 'store']);
+    Route::post('/proxies/check-all', [ProxyServerController::class, 'checkAll']);
+    Route::post('/proxies/verify-key', [ProxyServerController::class, 'verifyKey']);
     Route::post('/proxies/{proxy}/toggle', [ProxyServerController::class, 'toggle']);
     Route::post('/proxies/{proxy}/ping', [ProxyServerController::class, 'ping']);
     Route::delete('/proxies/invalid', [ProxyServerController::class, 'destroyInvalid']);
@@ -56,6 +58,8 @@ Route::middleware(['admin.access', 'throttle:api'])->prefix('admin')->group(func
 // Алиас управления пулом для внешних интеграций под admin.access
 Route::middleware(['admin.access', 'throttle:api'])->prefix('proxies')->group(function () {
     Route::get('/', [ProxyServerController::class, 'index']);
+    Route::post('/check-all', [ProxyServerController::class, 'checkAll']);
+    Route::post('/verify-key', [ProxyServerController::class, 'verifyKey']);
     Route::post('/{proxy}/toggle', [ProxyServerController::class, 'toggle']);
     Route::post('/{proxy}/ping', [ProxyServerController::class, 'ping']);
     Route::delete('/invalid', [ProxyServerController::class, 'destroyInvalid']);

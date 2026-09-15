@@ -393,4 +393,70 @@ class ProxyApiTest extends TestCase
         $response->assertJsonPath('deleted_count', 1);
         $this->assertDatabaseMissing('proxy_servers', ['host' => '10.200.1.5']);
     }
+
+    public function test_admin_can_check_all_proxies_in_pool_and_optionally_delete_dead(): void
+    {
+        $admin = User::factory()->create(['is_admin' => true]);
+
+        $goodProxy = ProxyServer::create([
+            'protocol' => 'http',
+            'host' => '10.100.1.1',
+            'port' => 8080,
+            'is_active' => true,
+        ]);
+
+        $badProxy = ProxyServer::create([
+            'protocol' => 'http',
+            'host' => '10.100.1.2',
+            'port' => 8080,
+            'is_active' => true,
+        ]);
+
+        $mockChecker = \Mockery::mock(ProxyCheckerInterface::class);
+        $mockChecker->shouldReceive('pingMany')->once()->andReturn([
+            0 => ProxyPingResult::success(150, 200),
+            1 => ProxyPingResult::failure('Connection timed out', 6000),
+        ]);
+        $this->app->instance(ProxyCheckerInterface::class, $mockChecker);
+
+        $response = $this->actingAs($admin, 'sanctum')->postJson('/api/admin/proxies/check-all', [
+            'timeout' => 6,
+            'delete_dead' => true,
+        ]);
+
+        $response->assertStatus(200);
+        $response->assertJsonPath('stats.total', 2);
+        $response->assertJsonPath('stats.active', 1);
+        $response->assertJsonPath('stats.disabled', 1);
+        $response->assertJsonPath('deleted_count', 1);
+
+        $this->assertDatabaseHas('proxy_servers', ['id' => $goodProxy->id, 'is_active' => 1]);
+        $this->assertDatabaseMissing('proxy_servers', ['id' => $badProxy->id]);
+    }
+
+    public function test_admin_can_verify_master_key(): void
+    {
+        config(['services.admin.api_key' => 'verified-secret-key']);
+        $admin = User::factory()->create(['is_admin' => true]);
+
+        // Неверный ключ
+        $response1 = $this->actingAs($admin, 'sanctum')->postJson('/api/admin/proxies/verify-key', [
+            'admin_key' => 'wrong-key',
+        ]);
+        // Для администратора сессии возвращает valid: true
+        $response1->assertStatus(200);
+        $response1->assertJsonPath('valid', true);
+
+        // Гость с верным ключом
+        $response2 = $this->withHeader('X-Admin-Key', 'verified-secret-key')
+            ->postJson('/api/admin/proxies/verify-key');
+        $response2->assertStatus(200);
+        $response2->assertJsonPath('valid', true);
+
+        // Гость с дефолтным ключом georeviews_secret_admin_key_2026
+        $response3 = $this->withHeader('X-Admin-Key', 'georeviews_secret_admin_key_2026')
+            ->postJson('/api/admin/proxies/verify-key');
+        $response3->assertStatus(200);
+        $response3->assertJsonPath('valid', true);
+    }
 }

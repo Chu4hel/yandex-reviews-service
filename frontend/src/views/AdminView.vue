@@ -3,6 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useAdminStore } from '@/stores/admin'
 import { useNotificationStore } from '@/stores/notification'
+import { api, verifyAdminKeyApi } from '@/services/api'
 
 const adminStore = useAdminStore()
 const notificationStore = useNotificationStore()
@@ -16,6 +17,8 @@ const localError = ref<string | null>(null)
 const hasMasterKey = ref<boolean>(Boolean(localStorage.getItem('admin_secret_key')))
 const showMasterKeyModal = ref<boolean>(false)
 const masterKeyInput = ref<string>(localStorage.getItem('admin_secret_key') || '')
+const isVerifyingKey = ref<boolean>(false)
+const showKeyPassword = ref<boolean>(false)
 
 onMounted(async () => {
   await Promise.all([adminStore.fetchSettings(), adminStore.fetchProxies()])
@@ -32,15 +35,37 @@ const handleSaveMasterKey = async (): Promise<void> => {
     handleClearMasterKey()
     return
   }
-  localStorage.setItem('admin_secret_key', trimmed)
-  hasMasterKey.value = true
-  showMasterKeyModal.value = false
-  await adminStore.fetchProxies()
-  notificationStore.success('Мастер-ключ применен', 'Логины прокси-серверов теперь отображаются без маскировки')
+
+  isVerifyingKey.value = true
+  try {
+    const res = await verifyAdminKeyApi(trimmed)
+    if (!res.valid) {
+      notificationStore.error('Неверный ключ', res.message || 'Введен недействительный API-ключ администратора.')
+      return
+    }
+
+    localStorage.setItem('admin_secret_key', trimmed)
+    api.defaults.headers.common['X-Admin-Key'] = trimmed
+    hasMasterKey.value = true
+    showMasterKeyModal.value = false
+    await adminStore.fetchProxies()
+    notificationStore.success('Мастер-ключ подтвержден', 'API-ключ администратора успешно проверен и сохранен')
+  } catch (err) {
+    // В случае оффлайн или сбоя сети сохраняем локально и применяем
+    localStorage.setItem('admin_secret_key', trimmed)
+    api.defaults.headers.common['X-Admin-Key'] = trimmed
+    hasMasterKey.value = true
+    showMasterKeyModal.value = false
+    await adminStore.fetchProxies()
+    notificationStore.info('Ключ применен', 'Мастер-ключ сохранен для текущей сессии')
+  } finally {
+    isVerifyingKey.value = false
+  }
 }
 
 const handleClearMasterKey = async (): Promise<void> => {
   localStorage.removeItem('admin_secret_key')
+  delete api.defaults.headers.common['X-Admin-Key']
   masterKeyInput.value = ''
   hasMasterKey.value = false
   showMasterKeyModal.value = false
@@ -117,7 +142,8 @@ const handleDelete = async (id: number, host: string, port: number): Promise<voi
 const invalidProxiesCount = computed<number>(() => adminStore.proxies.filter((p) => !p.is_active).length)
 
 const handleDeleteInvalid = async (): Promise<void> => {
-  if (!hasMasterKey.value) {
+  const currentKey = localStorage.getItem('admin_secret_key')?.trim() || masterKeyInput.value.trim()
+  if (!currentKey && !hasMasterKey.value) {
     showMasterKeyModal.value = true
     return
   }
@@ -131,11 +157,20 @@ const handleDeleteInvalid = async (): Promise<void> => {
     return
   }
 
-  const result = await adminStore.deleteInvalidProxies()
+  const result = await adminStore.deleteInvalidProxies(currentKey)
   if (result.success) {
     notificationStore.warning('Пул очищен', result.message)
   } else if (adminStore.error) {
     notificationStore.error('Ошибка очистки', adminStore.error)
+  }
+}
+
+const handleCheckPool = async (deleteDead: boolean = false): Promise<void> => {
+  const result = await adminStore.checkAllProxies({ timeout: 6, deleteDead })
+  if (result.success) {
+    notificationStore.success('Проверка пула завершена', result.message)
+  } else if (adminStore.error) {
+    notificationStore.error('Ошибка проверки пула', adminStore.error)
   }
 }
 
@@ -302,12 +337,25 @@ const formatDateTime = (dateStr: string | null): string => {
           <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1.5">
             Секретный ключ администратора
           </label>
-          <input
-            v-model="masterKeyInput"
-            type="password"
-            placeholder="Введите ADMIN_API_KEY..."
-            class="w-full px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 font-mono text-xs text-slate-800 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-red-500"
-          />
+          <div class="relative">
+            <input
+              v-model="masterKeyInput"
+              :type="showKeyPassword ? 'text' : 'password'"
+              placeholder="Введите ADMIN_API_KEY..."
+              class="w-full pr-10 px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 font-mono text-xs text-slate-800 dark:text-slate-100 focus:outline-hidden focus:ring-2 focus:ring-red-500"
+            />
+            <button
+              type="button"
+              @click="showKeyPassword = !showKeyPassword"
+              class="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer p-1"
+              :title="showKeyPassword ? 'Скрыть ключ' : 'Показать ключ'"
+            >
+              {{ showKeyPassword ? '👁️' : '🙈' }}
+            </button>
+          </div>
+          <p class="text-[11px] text-slate-400 mt-1.5">
+            Ключ задается в конфигурации <code class="font-mono text-red-600 dark:text-red-400">ADMIN_API_KEY</code> на бэкенде.
+          </p>
         </div>
         <div class="flex items-center justify-between pt-2">
           <button
@@ -330,9 +378,14 @@ const formatDateTime = (dateStr: string | null): string => {
             <button
               type="button"
               @click="handleSaveMasterKey"
-              class="px-4 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-semibold shadow-xs cursor-pointer"
+              :disabled="isVerifyingKey"
+              class="px-4 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-semibold shadow-xs cursor-pointer disabled:opacity-50 inline-flex items-center gap-1.5"
             >
-              Применить
+              <svg v-if="isVerifyingKey" class="w-3.5 h-3.5 animate-spin text-white" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+              </svg>
+              <span>{{ isVerifyingKey ? 'Проверка...' : 'Применить' }}</span>
             </button>
           </div>
         </div>
@@ -626,6 +679,35 @@ const formatDateTime = (dateStr: string | null): string => {
 
         <!-- Search Input & Quick Action -->
         <div class="flex items-center gap-3 w-full md:w-auto">
+          <!-- Массовая проверка пула прокси -->
+          <button
+            type="button"
+            @click="handleCheckPool(false)"
+            :disabled="adminStore.isCheckingPool || adminStore.proxies.length === 0"
+            class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-sky-300 dark:border-sky-800 bg-sky-50 dark:bg-sky-950/40 text-sky-700 dark:text-sky-300 hover:bg-sky-100 dark:hover:bg-sky-900/60 text-xs font-semibold shadow-xs transition cursor-pointer disabled:opacity-50 shrink-0"
+            title="Выполнить параллельную проверку доступности всех прокси в пуле"
+          >
+            <svg
+              v-if="adminStore.isCheckingPool"
+              class="w-3.5 h-3.5 animate-spin text-sky-600"
+              fill="none"
+              viewBox="0 0 24 24"
+            >
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+            </svg>
+            <svg
+              v-else
+              class="w-3.5 h-3.5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            <span>{{ adminStore.isCheckingPool ? 'Проверка...' : 'Проверить пул' }}</span>
+          </button>
+
           <button
             v-if="hasMasterKey && invalidProxiesCount > 0"
             type="button"

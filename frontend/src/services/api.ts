@@ -3,7 +3,7 @@ import type { LoginResponse, User } from '@/types/auth'
 import type { Organization, OrganizationStatus } from '@/types/organization'
 import type { PaginatedReviewsResponse } from '@/types/review'
 import type { OrganizationSnapshot } from '@/types/snapshot'
-import type { ProxyServerItem, SystemSettingsData } from '@/types/admin'
+import type { CheckPoolResponse, ProxyServerItem, SystemSettingsData } from '@/types/admin'
 
 const resolveBaseUrl = (): string => {
   const envUrl = import.meta.env.VITE_API_URL
@@ -25,14 +25,27 @@ export const api = axios.create({
   },
 })
 
+// Установка начального мастер-ключа из localStorage
+const savedAdminKey = localStorage.getItem('admin_secret_key')?.trim()
+if (savedAdminKey) {
+  api.defaults.headers.common['X-Admin-Key'] = savedAdminKey
+}
+
 // Прикрепление токена авторизации Bearer и сервисного мастер-ключа X-Admin-Key к исходящим запросам
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('auth_token')
   if (token && config.headers) {
-    config.headers.Authorization = `Bearer ${token}`
+    if (typeof config.headers.set === 'function') {
+      config.headers.set('Authorization', `Bearer ${token}`)
+    } else {
+      config.headers.Authorization = `Bearer ${token}`
+    }
   }
-  const adminSecretKey = localStorage.getItem('admin_secret_key')
+  const adminSecretKey = localStorage.getItem('admin_secret_key')?.trim()
   if (adminSecretKey && config.headers) {
+    if (typeof config.headers.set === 'function') {
+      config.headers.set('X-Admin-Key', adminSecretKey)
+    }
     config.headers['X-Admin-Key'] = adminSecretKey
   }
   return config
@@ -226,8 +239,40 @@ export const deleteProxyApi = async (id: number): Promise<{ message: string }> =
   return response.data
 }
 
-export const deleteInvalidProxiesApi = async (): Promise<{ message: string; deleted_count: number }> => {
-  const response = await api.delete<{ message: string; deleted_count: number }>('/admin/proxies/invalid')
+export const deleteInvalidProxiesApi = async (key?: string): Promise<{ message: string; deleted_count: number }> => {
+  const secretKey = (key || localStorage.getItem('admin_secret_key') || '').trim()
+  const headers: Record<string, string> = {}
+  if (secretKey) {
+    headers['X-Admin-Key'] = secretKey
+  }
+  const response = await api.delete<{ message: string; deleted_count: number }>('/admin/proxies/invalid', {
+    headers,
+    params: {
+      confirmed: 1,
+      admin_key: secretKey,
+    },
+  })
+  return response.data
+}
+
+export const verifyAdminKeyApi = async (key: string): Promise<{ valid: boolean; message: string }> => {
+  const cleanKey = key.trim()
+  const response = await api.post<{ valid: boolean; message: string }>('/admin/proxies/verify-key', {
+    admin_key: cleanKey,
+  }, {
+    headers: {
+      'X-Admin-Key': cleanKey,
+    },
+  })
+  return response.data
+}
+
+export const checkAllProxiesApi = async (params?: {
+  timeout?: number
+  all?: boolean
+  delete_dead?: boolean
+}): Promise<CheckPoolResponse> => {
+  const response = await api.post<CheckPoolResponse>('/admin/proxies/check-all', params ?? {})
   return response.data
 }
 

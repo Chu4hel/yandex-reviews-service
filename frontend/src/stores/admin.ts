@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import type { ProxyServerItem, SystemSettingsData } from '@/types/admin'
+import type { CheckPoolStats, ProxyServerItem, SystemSettingsData } from '@/types/admin'
 import {
   getAdminSettingsApi,
   getAdminProxiesApi,
@@ -8,6 +8,7 @@ import {
   toggleProxyApi,
   deleteProxyApi,
   deleteInvalidProxiesApi,
+  checkAllProxiesApi,
   pingProxyApi,
 } from '@/services/api'
 
@@ -19,6 +20,7 @@ export const useAdminStore = defineStore('admin', () => {
   const isLoadingProxies = ref<boolean>(false)
   const isSubmitting = ref<boolean>(false)
   const isDeletingInvalid = ref<boolean>(false)
+  const isCheckingPool = ref<boolean>(false)
   const error = ref<string | null>(null)
   const actionSuccess = ref<string | null>(null)
 
@@ -129,11 +131,11 @@ export const useAdminStore = defineStore('admin', () => {
     }
   }
 
-  const deleteInvalidProxies = async (): Promise<{ success: boolean; deletedCount: number; message: string }> => {
+  const deleteInvalidProxies = async (key?: string): Promise<{ success: boolean; deletedCount: number; message: string }> => {
     isDeletingInvalid.value = true
     error.value = null
     try {
-      const res = await deleteInvalidProxiesApi()
+      const res = await deleteInvalidProxiesApi(key)
       proxies.value = proxies.value.filter((p) => p.is_active)
       actionSuccess.value = res.message
       await fetchSettings()
@@ -189,6 +191,38 @@ export const useAdminStore = defineStore('admin', () => {
     }
   }
 
+  const checkAllProxies = async (options?: {
+    timeout?: number
+    all?: boolean
+    deleteDead?: boolean
+  }): Promise<{ success: boolean; message: string; stats?: CheckPoolStats }> => {
+    isCheckingPool.value = true
+    error.value = null
+    try {
+      const res = await checkAllProxiesApi({
+        timeout: options?.timeout ?? 6,
+        all: options?.all ?? false,
+        delete_dead: options?.deleteDead ?? false,
+      })
+      proxies.value = res.proxies
+      actionSuccess.value = res.message
+      await fetchSettings()
+      return { success: true, message: res.message, stats: res.stats }
+    } catch (err: unknown) {
+      let msg = 'Не удалось выполнить массовую проверку пула прокси'
+      if (typeof err === 'object' && err !== null && 'response' in err) {
+        const axiosErr = err as { response?: { data?: { message?: string } } }
+        msg = axiosErr.response?.data?.message ?? msg
+      } else if (err instanceof Error) {
+        msg = err.message
+      }
+      error.value = msg
+      return { success: false, message: msg }
+    } finally {
+      isCheckingPool.value = false
+    }
+  }
+
   const clearMessages = (): void => {
     error.value = null
     actionSuccess.value = null
@@ -202,6 +236,7 @@ export const useAdminStore = defineStore('admin', () => {
     isLoadingProxies,
     isSubmitting,
     isDeletingInvalid,
+    isCheckingPool,
     error,
     actionSuccess,
     fetchSettings,
@@ -210,6 +245,7 @@ export const useAdminStore = defineStore('admin', () => {
     toggleProxy,
     deleteProxy,
     deleteInvalidProxies,
+    checkAllProxies,
     pingProxy,
     clearMessages,
   }
