@@ -298,4 +298,99 @@ class ProxyApiTest extends TestCase
         $this->assertTrue($proxy->fresh()->is_active);
         $this->assertEquals(0, $proxy->fresh()->fails_count);
     }
+
+    public function test_destroy_invalid_proxies_is_denied_without_admin_key(): void
+    {
+        config(['services.admin.api_key' => 'secret-master-key']);
+        $admin = User::factory()->create(['is_admin' => true]);
+
+        ProxyServer::create([
+            'protocol' => 'http',
+            'host' => '10.200.1.10',
+            'port' => 8080,
+            'is_active' => false,
+        ]);
+
+        $response = $this->actingAs($admin, 'sanctum')->deleteJson('/api/admin/proxies/invalid');
+
+        $response->assertStatus(403);
+        $response->assertJsonPath('message', 'Для массового удаления невалидных прокси требуется валидный API-ключ администратора (X-Admin-Key).');
+        $this->assertDatabaseHas('proxy_servers', ['host' => '10.200.1.10']);
+    }
+
+    public function test_destroy_invalid_proxies_deletes_only_inactive_proxies_with_valid_admin_key(): void
+    {
+        config(['services.admin.api_key' => 'secret-master-key']);
+        $admin = User::factory()->create(['is_admin' => true]);
+
+        // 1. Активный валидный прокси
+        $activeProxy = ProxyServer::create([
+            'protocol' => 'http',
+            'host' => '10.200.1.1',
+            'port' => 8080,
+            'is_active' => true,
+        ]);
+
+        // 2. Прокси на охлаждении (валидный, но во временном карантине)
+        $cooldownProxy = ProxyServer::create([
+            'protocol' => 'http',
+            'host' => '10.200.1.2',
+            'port' => 8080,
+            'is_active' => true,
+            'cooldown_until' => now()->addMinutes(15),
+        ]);
+
+        // 3. Невалидный прокси 1 (не прошел пинг)
+        $invalidProxy1 = ProxyServer::create([
+            'protocol' => 'http',
+            'host' => '10.200.1.3',
+            'port' => 8080,
+            'is_active' => false,
+            'last_error' => 'Connection timed out',
+        ]);
+
+        // 4. Невалидный прокси 2 (деактивирован)
+        $invalidProxy2 = ProxyServer::create([
+            'protocol' => 'socks5',
+            'host' => '10.200.1.4',
+            'port' => 1080,
+            'is_active' => false,
+            'last_error' => 'Auth failed',
+        ]);
+
+        $response = $this->actingAs($admin, 'sanctum')
+            ->withHeader('X-Admin-Key', 'secret-master-key')
+            ->deleteJson('/api/admin/proxies/invalid');
+
+        $response->assertStatus(200);
+        $response->assertJsonPath('deleted_count', 2);
+        $response->assertJsonPath('message', 'Успешно удалено невалидных прокси: 2');
+
+        // Проверяем, что невалидные удалены
+        $this->assertDatabaseMissing('proxy_servers', ['id' => $invalidProxy1->id]);
+        $this->assertDatabaseMissing('proxy_servers', ['id' => $invalidProxy2->id]);
+
+        // Проверяем, что активный и охлаждающийся остались
+        $this->assertDatabaseHas('proxy_servers', ['id' => $activeProxy->id]);
+        $this->assertDatabaseHas('proxy_servers', ['id' => $cooldownProxy->id]);
+    }
+
+    public function test_destroy_invalid_proxies_via_alias_with_x_admin_key(): void
+    {
+        config(['services.admin.api_key' => 'secret-master-key']);
+
+        ProxyServer::create([
+            'protocol' => 'http',
+            'host' => '10.200.1.5',
+            'port' => 8080,
+            'is_active' => false,
+        ]);
+
+        $response = $this->withHeader('X-Admin-Key', 'secret-master-key')
+            ->deleteJson('/api/proxies/invalid');
+
+        $response->assertStatus(200);
+        $response->assertJsonPath('deleted_count', 1);
+        $this->assertDatabaseMissing('proxy_servers', ['host' => '10.200.1.5']);
+    }
 }

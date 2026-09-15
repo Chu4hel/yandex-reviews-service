@@ -46,6 +46,7 @@ Route::middleware(['admin.access', 'throttle:api'])->prefix('admin')->group(func
     Route::post('/proxies', [ProxyServerController::class, 'store']);
     Route::post('/proxies/{proxy}/toggle', [ProxyServerController::class, 'toggle']);
     Route::post('/proxies/{proxy}/ping', [ProxyServerController::class, 'ping']);
+    Route::delete('/proxies/invalid', [ProxyServerController::class, 'destroyInvalid']);
     Route::delete('/proxies/{proxy}', [ProxyServerController::class, 'destroy']);
 
     // Системные настройки и метрики очередей
@@ -57,5 +58,6 @@ Route::middleware(['admin.access', 'throttle:api'])->prefix('proxies')->group(fu
     Route::get('/', [ProxyServerController::class, 'index']);
     Route::post('/{proxy}/toggle', [ProxyServerController::class, 'toggle']);
     Route::post('/{proxy}/ping', [ProxyServerController::class, 'ping']);
+    Route::delete('/invalid', [ProxyServerController::class, 'destroyInvalid']);
     Route::delete('/{proxy}', [ProxyServerController::class, 'destroy']);
 });

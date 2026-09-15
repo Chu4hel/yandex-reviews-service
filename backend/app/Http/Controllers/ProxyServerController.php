@@ -222,6 +222,39 @@ class ProxyServerController extends Controller
     }
 
     /**
+     * Пакетное удаление всех невалидных (отключенных) прокси-серверов из пула.
+     * Требует наличия валидного сервисного API-ключа администратора (X-Admin-Key).
+     */
+    public function destroyInvalid(Request $request): JsonResponse
+    {
+        $configuredKey = (string) config('services.admin.api_key', '');
+        $providedKey = $request->header('X-Admin-Key')
+            ?? $request->header('X-API-Key')
+            ?? $request->bearerToken();
+
+        $hasAdminKey = $configuredKey !== ''
+            && $providedKey !== null
+            && hash_equals($configuredKey, (string) $providedKey);
+
+        if (! $hasAdminKey) {
+            return response()->json([
+                'message' => 'Для массового удаления невалидных прокси требуется валидный API-ключ администратора (X-Admin-Key).',
+            ], 403);
+        }
+
+        $deletedCount = ProxyServer::where('is_active', false)->delete();
+
+        $message = $deletedCount > 0
+            ? "Успешно удалено невалидных прокси: {$deletedCount}"
+            : 'Невалидные прокси не найдены.';
+
+        return response()->json([
+            'message' => $message,
+            'deleted_count' => $deletedCount,
+        ]);
+    }
+
+    /**
      * @return array{protocol: string, host: string, port: int, username: string|null, password: string|null}|null
      */
     private function parseProxyString(string $input): ?array
