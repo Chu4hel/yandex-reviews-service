@@ -149,19 +149,18 @@ class DatabaseProxyRotator implements ProxyRotatorInterface
             // Проверка пачками по 30 штук для предотвращения переполнения ресурсов пула
             $chunks = $proxies->chunk(30);
             foreach ($chunks as $chunk) {
+                /** @var list<array{protocol: string, host: string, port: int, username: string|null, password: string|null}> $configs */
                 $configs = [];
                 $chunkProxies = [];
-                $idx = 0;
                 foreach ($chunk as $proxy) {
-                    $configs[$idx] = [
+                    $configs[] = [
                         'protocol' => $proxy->protocol,
                         'host' => $proxy->host,
                         'port' => $proxy->port,
                         'username' => $proxy->username,
                         'password' => $proxy->password,
                     ];
-                    $chunkProxies[$idx] = $proxy;
-                    $idx++;
+                    $chunkProxies[] = $proxy;
                 }
 
                 $results = $checker->pingMany($configs, $timeoutSeconds);

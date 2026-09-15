@@ -217,14 +217,14 @@ class YandexMapsParserService implements YandexParserInterface
                 return $this->executeHttpRequest($targetUrl, $page, $proxy, $attempt, $maxAttempts);
             } catch (YandexParserException $e) {
                 $lastException = $e;
-                if ($attempt < $maxAttempts && $proxy !== null) {
+                if ($attempt < $maxAttempts) {
                     usleep(200000);
 
                     continue;
                 }
             } catch (\Throwable $e) {
                 $lastException = new YandexParserException("Ошибка подключения к Яндекс.Картам: {$e->getMessage()}", 0, $e);
-                if ($attempt < $maxAttempts && $proxy !== null) {
+                if ($attempt < $maxAttempts) {
                     usleep(200000);
 
                     continue;
