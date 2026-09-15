@@ -35,7 +35,7 @@ const organization = ref<Organization | null>(null)
 const isDemoOrg = computed<boolean>(() => {
   if (!organization.value) return false
   return (
-    organization.value.name.includes('Демо') ||
+    (organization.value.name?.includes('Демо') ?? false) ||
     organization.value.yandex_org_id === '67037665858'
   )
 })
@@ -60,20 +60,25 @@ const isLoading = ref<boolean>(true)
 const isReviewsLoading = ref<boolean>(false)
 const isSyncing = ref<boolean>(false)
 const errorMessage = ref<string | null>(null)
+const reviewsError = ref<string | null>(null)
 
 let statusTimer: number | null = null
+let pollErrorsCount = 0
+let lastDbCount = 0
 
 const loadOrganization = async (): Promise<void> => {
   isLoading.value = true
   errorMessage.value = null
+  reviewsError.value = null
   try {
     const orgRes = await getOrganizationApi(orgId)
     organization.value = orgRes.data
-    await Promise.all([loadReviews(1), loadSnapshots()])
 
     if (organization.value.sync_status === 'syncing' || organization.value.sync_status === 'pending') {
       startPolling()
     }
+
+    await Promise.allSettled([loadReviews(1), loadSnapshots()])
   } catch (err: unknown) {
     errorMessage.value = err instanceof Error ? err.message : 'Не удалось загрузить данные организации'
   } finally {
@@ -81,8 +86,10 @@ const loadOrganization = async (): Promise<void> => {
   }
 }
 
-const loadReviews = async (page = 1): Promise<void> => {
-  isReviewsLoading.value = true
+const loadReviews = async (page = 1, silent = false): Promise<void> => {
+  if (!silent) {
+    isReviewsLoading.value = true
+  }
   try {
     const res = await getOrganizationReviewsApi(
       orgId,
@@ -93,10 +100,20 @@ const loadReviews = async (page = 1): Promise<void> => {
     )
     reviews.value = res.data
     meta.value = res.meta
+    reviewsError.value = null
   } catch (err: unknown) {
-    errorMessage.value = err instanceof Error ? err.message : 'Ошибка загрузки отзывов'
+    if (!silent) {
+      const isSyncingNow =
+        organization.value?.sync_status === 'syncing' ||
+        organization.value?.sync_status === 'pending'
+      if (!isSyncingNow) {
+        reviewsError.value = err instanceof Error ? err.message : 'Ошибка загрузки отзывов'
+      }
+    }
   } finally {
-    isReviewsLoading.value = false
+    if (!silent) {
+      isReviewsLoading.value = false
+    }
   }
 }
 
@@ -181,6 +198,17 @@ const triggerSync = async (syncNow = false): Promise<void> => {
     notificationStore.success('Синхронизация запущена', 'Сбор отзывов выполняется в фоновом режиме')
     startPolling()
   } catch (err: unknown) {
+    if (axios.isAxiosError(err) && err.response?.status === 409) {
+      notificationStore.info(
+        'Синхронизация уже выполняется',
+        'Сбор отзывов уже запущен в фоновом режиме.'
+      )
+      if (organization.value) {
+        organization.value.sync_status = 'syncing'
+      }
+      startPolling()
+      return
+    }
     if (axios.isAxiosError(err) && err.response?.status === 429) {
       const waitSec = extractRetryAfterSeconds(err, 60)
       orgStore.setSyncCooldown(orgId, waitSec)
@@ -216,9 +244,11 @@ const handleDeleteConfirm = async (): Promise<void> => {
 
 const startPolling = (): void => {
   if (statusTimer) return
+  pollErrorsCount = 0
   statusTimer = window.setInterval(async () => {
     try {
       const res = await getOrganizationStatusApi(orgId)
+      pollErrorsCount = 0
       if (organization.value) {
         organization.value.sync_status = res.data.sync_status
         organization.value.sync_progress = res.data.sync_progress
@@ -234,15 +264,30 @@ const startPolling = (): void => {
         }
       }
 
+      // Если в БД появились новые отзывы во время сбора — мягко подгружаем первую страницу без мигания
+      const currentDb = res.data.db_reviews_count ?? 0
+      if (
+        (reviews.value.length === 0 || currentDb > lastDbCount) &&
+        meta.value.current_page === 1 &&
+        !searchQuery.value.trim() &&
+        selectedRating.value === 0
+      ) {
+        lastDbCount = currentDb
+        void loadReviews(1, true)
+      }
+
       if (res.data.sync_status === 'completed' || res.data.sync_status === 'failed') {
         stopPolling()
         void loadReviews(meta.value.current_page)
         void loadSnapshots()
       }
     } catch {
-      stopPolling()
+      pollErrorsCount++
+      if (pollErrorsCount >= 5) {
+        stopPolling()
+      }
     }
-  }, 1200)
+  }, 2000)
 }
 
 const stopPolling = (): void => {
@@ -315,12 +360,12 @@ onUnmounted(() => {
 
         <button
           @click="triggerSync(false)"
-          :disabled="isSyncing || organization?.sync_status === 'syncing' || (orgStore.syncCooldowns[orgId] ?? 0) > 0"
+          :disabled="isSyncing || organization?.sync_status === 'syncing' || organization?.sync_status === 'pending' || (orgStore.syncCooldowns[orgId] ?? 0) > 0"
           :title="(orgStore.syncCooldowns[orgId] ?? 0) > 0 ? `Подождите ${orgStore.syncCooldowns[orgId]} с...` : 'Обновить отзывы'"
           class="px-4 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-semibold shadow-xs transition flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
         >
           <svg
-            v-if="organization?.sync_status === 'syncing' || isSyncing"
+            v-if="organization?.sync_status === 'syncing' || organization?.sync_status === 'pending' || isSyncing"
             class="animate-spin w-3.5 h-3.5"
             fill="none"
             viewBox="0 0 24 24"
@@ -332,7 +377,7 @@ onUnmounted(() => {
             Подождите {{ orgStore.syncCooldowns[orgId] }} с
           </span>
           <span v-else>
-            {{ organization?.sync_status === 'syncing' ? 'Синхронизация...' : 'Обновить отзывы' }}
+            {{ organization?.sync_status === 'syncing' ? 'Парсинг отзывов...' : (organization?.sync_status === 'pending' ? 'В очереди...' : 'Обновить отзывы') }}
           </span>
         </button>
       </div>
@@ -395,7 +440,14 @@ onUnmounted(() => {
                 🎯 Демо-стенд
               </span>
               <span
-                v-if="organization.sync_status === 'syncing'"
+                v-if="organization.sync_status === 'pending'"
+                class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300"
+              >
+                <span class="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
+                В очереди на сбор
+              </span>
+              <span
+                v-else-if="organization.sync_status === 'syncing'"
                 class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300"
               >
                 <span class="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
@@ -433,21 +485,21 @@ onUnmounted(() => {
         </div>
 
         <!-- Sync Progress Bar -->
-        <div v-if="organization.sync_status === 'syncing'" class="mt-4 p-4 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+        <div v-if="organization.sync_status === 'syncing' || organization.sync_status === 'pending'" class="mt-4 p-4 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
           <div class="flex items-center justify-between text-xs font-semibold text-amber-900 dark:text-amber-200 mb-1.5">
             <span class="flex items-center gap-2">
               <svg class="animate-spin w-3.5 h-3.5 text-amber-600 shrink-0" fill="none" viewBox="0 0 24 24">
                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                 <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
               </svg>
-              <span>{{ organization.sync_message || 'Выполняется фоновый сбор отзывов с Яндекс.Карт...' }}</span>
+              <span>{{ organization.sync_message || (organization.sync_status === 'pending' ? 'Ожидание очереди на сбор отзывов...' : 'Выполняется фоновый сбор отзывов с Яндекс.Карт...') }}</span>
             </span>
-            <span class="font-mono font-bold">{{ organization.sync_progress }}%</span>
+            <span class="font-mono font-bold">{{ organization.sync_status === 'pending' ? 0 : organization.sync_progress }}%</span>
           </div>
           <div class="w-full bg-amber-200 dark:bg-amber-900/60 h-2.5 rounded-full overflow-hidden">
             <div
               class="bg-gradient-to-r from-amber-500 to-red-600 h-2.5 rounded-full transition-all duration-300"
-              :style="{ width: `${organization.sync_progress}%` }"
+              :style="{ width: `${organization.sync_status === 'pending' ? 5 : organization.sync_progress}%` }"
             ></div>
           </div>
           <p class="mt-2 text-[11px] text-amber-800/90 dark:text-amber-300/80">
@@ -476,7 +528,7 @@ onUnmounted(() => {
             <span class="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-400">Количество оценок</span>
             <div class="mt-2">
               <span class="text-3xl font-extrabold text-slate-900 dark:text-white tabular-nums">
-                {{ organization.ratings_count.toLocaleString('ru-RU') }}
+                {{ (organization.ratings_count ?? 0).toLocaleString('ru-RU') }}
               </span>
               <p class="text-xs text-slate-500 dark:text-slate-300 mt-1">Всего поставлено оценок пользователями</p>
             </div>
@@ -490,12 +542,12 @@ onUnmounted(() => {
                 class="text-[11px] px-2 py-0.5 rounded-full bg-slate-200/80 dark:bg-slate-700 font-medium text-slate-700 dark:text-slate-200"
                 title="Количество отзывов, сохраненных в базу сервиса"
               >
-                В базе: {{ meta.total.toLocaleString('ru-RU') }}
+                В базе: {{ (meta.total ?? 0).toLocaleString('ru-RU') }}
               </span>
             </div>
             <div class="mt-2">
               <span class="text-3xl font-extrabold text-slate-900 dark:text-white tabular-nums">
-                {{ organization.reviews_count.toLocaleString('ru-RU') }}
+                {{ (organization.reviews_count ?? 0).toLocaleString('ru-RU') }}
               </span>
               <p class="text-xs text-slate-500 dark:text-slate-300 mt-1">
                 Всего отзывов на карточке Яндекс.Карт
@@ -517,7 +569,7 @@ onUnmounted(() => {
               : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
           ]"
         >
-          💬 Отзывы в базе ({{ meta.total.toLocaleString('ru-RU') }})
+          💬 Отзывы в базе ({{ (meta.total ?? 0).toLocaleString('ru-RU') }})
         </button>
 
         <button
@@ -538,14 +590,14 @@ onUnmounted(() => {
       <div v-if="activeTab === 'reviews'" class="space-y-4">
         <!-- Discrepancy Info Banner -->
         <div
-          v-if="organization.reviews_count > meta.total && organization.sync_status !== 'syncing'"
+          v-if="(organization.reviews_count ?? 0) > (meta.total ?? 0) && organization.sync_status !== 'syncing' && organization.sync_status !== 'pending'"
           class="p-4 rounded-xl bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200/80 dark:border-amber-800/60 text-xs text-amber-950 dark:text-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
         >
           <div class="flex items-start gap-2.5">
             <span class="text-base shrink-0">ℹ️</span>
             <div class="space-y-1">
               <p>
-                На Яндекс.Картах зафиксировано <strong>{{ organization.reviews_count.toLocaleString('ru-RU') }}</strong> отзывов (в базе сервиса: <strong>{{ meta.total.toLocaleString('ru-RU') }}</strong>).
+                На Яндекс.Картах зафиксировано <strong>{{ (organization.reviews_count ?? 0).toLocaleString('ru-RU') }}</strong> отзывов (в базе сервиса: <strong>{{ (meta.total ?? 0).toLocaleString('ru-RU') }}</strong>).
               </p>
               <p class="text-amber-800 dark:text-amber-300 font-medium">
                 🛡️ <strong>Намеренное ограничение в коде:</strong> сервис выгружает до <strong>600 актуальных отзывов</strong> (12 страниц по 50 шт.). Это сделано намеренно для гарантированной защиты IP-адреса от блокировок и SmartCaptcha Яндекса.
@@ -671,9 +723,52 @@ onUnmounted(() => {
           </div>
         </div>
 
+        <!-- Reviews Error Notice if fetching reviews encounters a non-fatal error -->
+        <div
+          v-if="reviewsError"
+          class="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-800 dark:text-amber-200 text-xs flex items-center justify-between gap-3"
+        >
+          <div class="flex items-center gap-2">
+            <svg class="w-4 h-4 shrink-0 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            <span>{{ reviewsError }}</span>
+          </div>
+          <button
+            type="button"
+            @click="loadReviews(meta.current_page)"
+            class="px-2.5 py-1 rounded-md bg-amber-600 hover:bg-amber-700 text-white text-xs font-medium transition cursor-pointer shrink-0"
+          >
+            Повторить
+          </button>
+        </div>
+
         <!-- Reviews Skeleton / List -->
-        <div v-if="isReviewsLoading" class="space-y-4">
+        <div v-if="isReviewsLoading && reviews.length === 0" class="space-y-4">
           <ReviewSkeleton v-for="i in 5" :key="i" />
+        </div>
+
+        <!-- Special state: Syncing in progress & no reviews yet -->
+        <div
+          v-else-if="reviews.length === 0 && (organization.sync_status === 'syncing' || organization.sync_status === 'pending')"
+          class="bg-white dark:bg-slate-800 rounded-2xl p-10 text-center border border-amber-200/80 dark:border-amber-800/60 shadow-xs"
+        >
+          <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-amber-100/80 dark:bg-amber-950/50 mb-3 text-amber-600">
+            <svg class="animate-spin w-6 h-6" fill="none" viewBox="0 0 24 24">
+              <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+              <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+            </svg>
+          </div>
+          <h3 class="text-base font-bold text-slate-900 dark:text-white">
+            Идет сбор отзывов с Яндекс.Карт...
+          </h3>
+          <p class="text-xs text-slate-500 dark:text-slate-400 max-w-md mx-auto mt-1.5 leading-relaxed">
+            {{ organization.sync_message || (organization.sync_status === 'pending' ? 'Организация ожидает очереди на синхронизацию.' : 'Подключение к источнику и постраничная выгрузка отзывов. Они отобразятся здесь по мере сохранения.') }}
+          </p>
+          <div class="mt-4 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-50 dark:bg-amber-950/60 border border-amber-200/60 dark:border-amber-800/40 text-xs font-semibold text-amber-700 dark:text-amber-300">
+            <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+            <span>Прогресс: {{ organization.sync_status === 'pending' ? 0 : organization.sync_progress }}%</span>
+          </div>
         </div>
 
         <div v-else-if="reviews.length === 0" class="bg-white dark:bg-slate-800 rounded-xl p-12 text-center border border-slate-200 dark:border-slate-700">

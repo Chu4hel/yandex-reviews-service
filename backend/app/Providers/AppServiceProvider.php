@@ -83,7 +83,14 @@ class AppServiceProvider extends ServiceProvider
             $user = $request->user();
             $identifier = $user !== null ? (string) $user->getAuthIdentifier() : (string) $request->ip();
 
-            return Limit::perMinute(60)->by($identifier);
+            return Limit::perMinute(120)->by($identifier);
+        });
+
+        RateLimiter::for('status', function (Request $request) {
+            $user = $request->user();
+            $identifier = $user !== null ? (string) $user->getAuthIdentifier() : (string) $request->ip();
+
+            return Limit::perMinute(300)->by($identifier);
         });
 
         RateLimiter::for('login', function (Request $request) {

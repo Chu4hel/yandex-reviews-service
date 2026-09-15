@@ -122,10 +122,6 @@ export const useOrganizationsStore = defineStore('organizations', () => {
         currentOrganization.value = updated
       }
     } catch (err: unknown) {
-      if (typeof err === 'object' && err !== null && 'response' in err) {
-        const axiosErr = err as { response?: { data?: { message?: string } } }
-        throw new Error(axiosErr.response?.data?.message ?? 'Ошибка запуска синхронизации', { cause: err })
-      }
       throw err
     }
   }

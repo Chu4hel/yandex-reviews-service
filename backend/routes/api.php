@@ -26,7 +26,7 @@ Route::middleware(['auth:sanctum', 'throttle:api'])->prefix('organizations')->gr
     Route::get('/', [OrganizationController::class, 'index']);
     Route::post('/', [OrganizationController::class, 'store'])->middleware('throttle:sync-organizations');
     Route::get('/{organization}', [OrganizationController::class, 'show']);
-    Route::get('/{organization}/status', [OrganizationController::class, 'status']);
+    Route::get('/{organization}/status', [OrganizationController::class, 'status'])->withoutMiddleware('throttle:api')->middleware('throttle:status');
     Route::post('/{organization}/sync', [OrganizationController::class, 'sync'])->middleware('throttle:sync-organizations');
     Route::get('/{organization}/reviews', [OrganizationController::class, 'reviews']);
     Route::get('/{organization}/snapshots', [OrganizationController::class, 'snapshots']);

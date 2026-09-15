@@ -137,6 +137,14 @@ const triggerSync = async (id: number): Promise<void> => {
     notificationStore.success('Синхронизация запущена', 'Сбор отзывов выполняется в фоновом режиме')
     startPolling()
   } catch (err: unknown) {
+    if (axios.isAxiosError(err) && err.response?.status === 409) {
+      notificationStore.info(
+        'Синхронизация уже выполняется',
+        'Сбор отзывов уже запущен в фоновом режиме.'
+      )
+      startPolling()
+      return
+    }
     if (axios.isAxiosError(err) && err.response?.status === 429) {
       const waitSec = extractRetryAfterSeconds(err, 60)
       store.setSyncCooldown(id, waitSec)
@@ -186,10 +194,14 @@ const startPolling = (): void => {
 
     for (const org of store.organizations) {
       if (org.sync_status === 'syncing' || org.sync_status === 'pending') {
-        await store.updateStatus(org.id)
+        try {
+          await store.updateStatus(org.id)
+        } catch {
+          // Игнорируем разовую ошибку поллинга
+        }
       }
     }
-  }, 1500)
+  }, 2500)
 }
 
 const stopPolling = (): void => {
@@ -483,21 +495,21 @@ onUnmounted(() => {
               <div>
                 <span class="text-[10px] uppercase font-bold tracking-wider text-slate-400">Отзывов / Оценок</span>
                 <div class="text-xs font-bold text-slate-800 dark:text-slate-100 mt-0.5">
-                  {{ org.reviews_count.toLocaleString('ru-RU') }} / {{ org.ratings_count.toLocaleString('ru-RU') }}
+                  {{ (org.reviews_count ?? 0).toLocaleString('ru-RU') }} / {{ (org.ratings_count ?? 0).toLocaleString('ru-RU') }}
                 </div>
               </div>
             </div>
 
-            <!-- Sync Progress Bar if syncing -->
-            <div v-if="org.sync_status === 'syncing'" class="mb-4">
+            <!-- Sync Progress Bar if syncing or pending -->
+            <div v-if="org.sync_status === 'syncing' || org.sync_status === 'pending'" class="mb-4">
               <div class="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden">
                 <div
                   class="bg-red-600 h-1.5 rounded-full transition-all duration-300"
-                  :style="{ width: `${org.sync_progress}%` }"
+                  :style="{ width: `${org.sync_status === 'pending' ? 5 : org.sync_progress}%` }"
                 ></div>
               </div>
               <span class="text-[11px] text-amber-600 dark:text-amber-400 block mt-1 font-medium truncate" :title="org.sync_message || ''">
-                {{ org.sync_message || `Сбор отзывов... ${org.sync_progress}%` }}
+                {{ org.sync_message || (org.sync_status === 'pending' ? 'Ожидание очереди на сбор...' : `Сбор отзывов... ${org.sync_progress}%`) }}
               </span>
             </div>
           </div>
@@ -509,12 +521,12 @@ onUnmounted(() => {
               @click="router.push(`/organizations/${org.id}`)"
               class="flex-1 py-2 px-3 rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-semibold text-center transition cursor-pointer"
             >
-              Открыть отзывы &rarr;
+              {{ org.sync_status === 'syncing' ? 'Открыть (парсинг...) →' : 'Открыть отзывы →' }}
             </button>
             <button
               type="button"
               @click="triggerSync(org.id)"
-              :disabled="org.sync_status === 'syncing' || (store.syncCooldowns[org.id] ?? 0) > 0"
+              :disabled="org.sync_status === 'syncing' || org.sync_status === 'pending' || (store.syncCooldowns[org.id] ?? 0) > 0"
               :title="(store.syncCooldowns[org.id] ?? 0) > 0 ? `Подождите ${store.syncCooldowns[org.id]} с...` : 'Запустить повторную синхронизацию'"
               class="p-2 rounded-lg border border-slate-300 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 text-xs transition disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer flex items-center gap-1 shrink-0"
             >

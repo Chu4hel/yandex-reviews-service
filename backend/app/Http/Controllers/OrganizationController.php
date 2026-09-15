@@ -121,7 +121,7 @@ class OrganizationController extends Controller
      */
     public function sync(Organization $organization, Request $request): JsonResponse
     {
-        if ($organization->sync_status === 'syncing') {
+        if ($organization->sync_status === 'syncing' || $organization->sync_status === 'pending') {
             return response()->json([
                 'message' => 'Синхронизация уже выполняется.',
                 'data' => new OrganizationResource($organization),

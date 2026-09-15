@@ -357,4 +357,71 @@ class OrganizationApiTest extends TestCase
         $this->assertEquals(80, $snapshot->reviews_count_after);
         $this->assertEquals(2, $snapshot->new_reviews_added);
     }
+
+    public function test_sync_returns_409_when_already_syncing_or_pending(): void
+    {
+        $orgSyncing = Organization::create([
+            'yandex_org_id' => '111222333',
+            'name' => 'Синхронизирующаяся карточка',
+            'url' => 'https://yandex.ru/maps/org/111222333/',
+            'sync_status' => 'syncing',
+            'sync_progress' => 45,
+        ]);
+
+        $responseSyncing = $this->withHeader('Authorization', 'Bearer '.$this->token)
+            ->postJson("/api/organizations/{$orgSyncing->id}/sync");
+
+        $responseSyncing->assertStatus(409)
+            ->assertJsonPath('message', 'Синхронизация уже выполняется.');
+
+        $orgPending = Organization::create([
+            'yandex_org_id' => '444555666',
+            'name' => 'Карточка в очереди',
+            'url' => 'https://yandex.ru/maps/org/444555666/',
+            'sync_status' => 'pending',
+            'sync_progress' => 0,
+        ]);
+
+        $responsePending = $this->withHeader('Authorization', 'Bearer '.$this->token)
+            ->postJson("/api/organizations/{$orgPending->id}/sync");
+
+        $responsePending->assertStatus(409)
+            ->assertJsonPath('message', 'Синхронизация уже выполняется.');
+    }
+
+    public function test_status_endpoint_returns_db_reviews_count_and_progress(): void
+    {
+        $org = Organization::create([
+            'yandex_org_id' => '555666777',
+            'name' => 'Организация для поллинга статуса',
+            'url' => 'https://yandex.ru/maps/org/555666777/',
+            'sync_status' => 'syncing',
+            'sync_progress' => 60,
+            'sync_message' => 'Страница 2 из 4',
+            'rating' => 4.6,
+            'ratings_count' => 88,
+            'reviews_count' => 70,
+        ]);
+
+        Review::create([
+            'organization_id' => $org->id,
+            'yandex_review_id' => 'rev_status_1',
+            'author_name' => 'Иван',
+            'rating' => 5,
+            'text' => 'Тестовый отзыв',
+            'published_at' => now(),
+        ]);
+
+        $response = $this->withHeader('Authorization', 'Bearer '.$this->token)
+            ->getJson("/api/organizations/{$org->id}/status");
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.id', $org->id)
+            ->assertJsonPath('data.sync_status', 'syncing')
+            ->assertJsonPath('data.sync_progress', 60)
+            ->assertJsonPath('data.sync_message', 'Страница 2 из 4')
+            ->assertJsonPath('data.db_reviews_count', 1)
+            ->assertJsonPath('data.ratings_count', 88)
+            ->assertJsonPath('data.reviews_count', 70);
+    }
 }
