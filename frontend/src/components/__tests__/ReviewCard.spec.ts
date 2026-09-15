@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import ReviewCard from '../ReviewCard.vue'
+import { computeAdaptiveTruncation } from '@/utils/textTruncation'
 import type { Review } from '@/types/review'
 
 describe('ReviewCard.vue', () => {
@@ -146,6 +147,41 @@ describe('ReviewCard.vue', () => {
     // Кликаем "Свернуть"
     await toggleButton.trigger('click')
     expect(wrapper.text()).toContain('Показать полностью')
+  })
+
+  it('does not truncate reviews shorter than trigger threshold (e.g. 420 chars)', () => {
+    const mediumText = 'Уютное заведение с прекрасным обслуживанием и вкусной кухней. '.repeat(6) // ~378 символов
+    const mediumReview: Review = {
+      ...baseReview,
+      text: mediumText,
+    }
+
+    const wrapper = mount(ReviewCard, {
+      props: {
+        review: mediumReview,
+      },
+    })
+
+    expect(wrapper.text()).not.toContain('Показать полностью')
+    expect(wrapper.text()).toContain(mediumText)
+  })
+
+  it('adaptively cuts at sentence boundary and keeps short remaining endings', () => {
+    // 1. Предложение заканчивается на ~380 символе, а хвост длинный (200 символов) -> срез ровно по предложению
+    const sent1 = 'Первая часть отзыва с подробным описанием всех впечатлений от визита в кафе. '.repeat(5) // ~385 символов
+    const sent2 = 'Вторая отдельная мысль с дополнительными замечаниями о десертах и парковке. '.repeat(3) // ~230 символов
+    const fullText = sent1 + sent2
+
+    const result = computeAdaptiveTruncation(fullText)
+    expect(result.isLong).toBe(true)
+    expect(result.preview).toContain('впечатлений от визита в кафе.')
+    expect(result.preview.endsWith('...')).toBe(true)
+
+    // 2. Если до конца отзыва остается короткий хвостик (< 80 символов), он дописывается целиком
+    const almostComplete = sent1 + 'Рекомендую всем заглянуть!' // ~412 символов всего, остаток 27 символов
+    const completeResult = computeAdaptiveTruncation(almostComplete)
+    expect(completeResult.isLong).toBe(false)
+    expect(completeResult.preview).toBe(almostComplete)
   })
 })
 

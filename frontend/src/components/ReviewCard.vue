@@ -3,6 +3,7 @@ import { computed, ref } from 'vue'
 import type { Review } from '@/types/review'
 import RatingStars from './RatingStars.vue'
 import PhotoLightboxModal from './PhotoLightboxModal.vue'
+import { computeAdaptiveTruncation, type AdaptiveTruncationResult } from '@/utils/textTruncation'
 
 interface Props {
   review: Review
@@ -110,12 +111,15 @@ const formattedResponseDate = computed<string>(() => {
   }
 })
 
-const TEXT_COLLAPSE_THRESHOLD = 320
 const isTextExpanded = ref<boolean>(false)
 const isResponseExpanded = ref<boolean>(false)
 
+const textTruncation = computed<AdaptiveTruncationResult>(() => {
+  return computeAdaptiveTruncation(props.review.text)
+})
+
 const isTextLong = computed<boolean>(() => {
-  return (props.review.text?.length ?? 0) > TEXT_COLLAPSE_THRESHOLD
+  return textTruncation.value.isLong
 })
 
 const displayedReviewText = computed<string>(() => {
@@ -123,14 +127,15 @@ const displayedReviewText = computed<string>(() => {
   if (!isTextLong.value || isTextExpanded.value) {
     return full
   }
-  const slice = full.slice(0, TEXT_COLLAPSE_THRESHOLD)
-  const lastSpace = slice.lastIndexOf(' ')
-  const cleanSlice = lastSpace > 200 ? slice.slice(0, lastSpace) : slice
-  return cleanSlice.trimEnd() + '...'
+  return textTruncation.value.preview
+})
+
+const responseTruncation = computed<AdaptiveTruncationResult>(() => {
+  return computeAdaptiveTruncation(props.review.business_response_text)
 })
 
 const isResponseLong = computed<boolean>(() => {
-  return (props.review.business_response_text?.length ?? 0) > TEXT_COLLAPSE_THRESHOLD
+  return responseTruncation.value.isLong
 })
 
 const displayedResponseText = computed<string>(() => {
@@ -138,10 +143,7 @@ const displayedResponseText = computed<string>(() => {
   if (!isResponseLong.value || isResponseExpanded.value) {
     return full
   }
-  const slice = full.slice(0, TEXT_COLLAPSE_THRESHOLD)
-  const lastSpace = slice.lastIndexOf(' ')
-  const cleanSlice = lastSpace > 200 ? slice.slice(0, lastSpace) : slice
-  return cleanSlice.trimEnd() + '...'
+  return responseTruncation.value.preview
 })
 
 const hasAvatarLoadError = ref<boolean>(false)
