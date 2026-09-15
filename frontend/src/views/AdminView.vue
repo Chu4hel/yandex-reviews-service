@@ -50,7 +50,7 @@ const handleSaveMasterKey = async (): Promise<void> => {
     showMasterKeyModal.value = false
     await adminStore.fetchProxies()
     notificationStore.success('Мастер-ключ подтвержден', 'API-ключ администратора успешно проверен и сохранен')
-  } catch (err) {
+  } catch {
     // В случае оффлайн или сбоя сети сохраняем локально и применяем
     localStorage.setItem('admin_secret_key', trimmed)
     api.defaults.headers.common['X-Admin-Key'] = trimmed

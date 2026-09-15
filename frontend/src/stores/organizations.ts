@@ -111,18 +111,14 @@ export const useOrganizationsStore = defineStore('organizations', () => {
   }
 
   const triggerSync = async (id: number, syncNow = false): Promise<void> => {
-    try {
-      const response = await syncOrganizationApi(id, syncNow)
-      const updated = response.data
-      const idx = organizations.value.findIndex((o) => o.id === id)
-      if (idx >= 0) {
-        organizations.value[idx] = updated
-      }
-      if (currentOrganization.value?.id === id) {
-        currentOrganization.value = updated
-      }
-    } catch (err: unknown) {
-      throw err
+    const response = await syncOrganizationApi(id, syncNow)
+    const updated = response.data
+    const idx = organizations.value.findIndex((o) => o.id === id)
+    if (idx >= 0) {
+      organizations.value[idx] = updated
+    }
+    if (currentOrganization.value?.id === id) {
+      currentOrganization.value = updated
     }
   }
 
